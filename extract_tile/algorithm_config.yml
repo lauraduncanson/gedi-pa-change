@@ -1,0 +1,24 @@
+algorithm_description: Extracts quality-filtered, power-beam, growing-season GEDI shots for one 1-degree tile of gedi-tiled-v3 and aggregates them to 1 km EASE2 cells for T1 (2019-2021) and T2 (2024-2026).
+algorithm_name: gedi-pa-change-extract-tile
+algorithm_version: main
+keywords: ogc, gedi, protected areas
+code_repository: https://github.com/EDIT_ME/gedi-pa-change.git
+citation: https://github.com/lauraiduncanson/gedi-pa-change.git
+author: lauraiduncanson
+contributor: lauraiduncanson
+license: https://raw.githubusercontent.com/EDIT_ME/gedi-pa-change/refs/heads/main/LICENSE
+release_notes: None
+run_command: extract_tile.py
+ram_min: 8192 # mebibytes
+cores_min: 2
+outdir_max: 4096 # mebibytes
+
+inputs:
+  - name: tile
+    doc: Tile id in gedi-tiled-v3, e.g. S13_E028
+    label: Tile id
+    type: string
+
+outputs:
+  - name: out
+    type: Directory

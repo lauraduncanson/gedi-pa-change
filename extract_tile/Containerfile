@@ -1,0 +1,17 @@
+FROM python:3.12-slim
+
+COPY ./extract_tile/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Bake the DuckDB S3 extensions into the image so jobs do not download them at run time
+ENV DUCKDB_EXTENSION_DIR=/opt/duckdb_extensions
+RUN mkdir -p $DUCKDB_EXTENSION_DIR \
+    && python -c "import duckdb; c = duckdb.connect(); c.sql(\"SET extension_directory='/opt/duckdb_extensions'\"); c.sql('INSTALL httpfs'); c.sql('INSTALL aws')" \
+    && chmod -R a+rX $DUCKDB_EXTENSION_DIR
+
+# The growing-season windows are versioned with the code
+COPY ./extract_tile/doy_windows.csv /app/doy_windows.csv
+ENV GEDI_PA_WINDOWS=/app/doy_windows.csv
+
+COPY ./extract_tile/extract_tile.py /usr/local/bin/extract_tile.py
+RUN chmod +x /usr/local/bin/extract_tile.py

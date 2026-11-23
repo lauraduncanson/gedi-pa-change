@@ -1,0 +1,33 @@
+name: extract-tile
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'extract_tile/**'
+      - '.github/workflows/extract-tile.yml'
+
+concurrency:
+  group: ogc-app-pack-deploy
+  cancel-in-progress: false
+
+jobs:
+  generate_app_pack:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repo content
+        uses: actions/checkout@v6
+
+      # Builds the container image (pushed to this repo's GHCR), generates the CWL and commits
+      # it to extract_tile/cwl_workflows/. Registration with MAAP is done from the Hub
+      # (see README), so no MAAP token is stored in GitHub.
+      - name: Use OGC App Pack Generator Action
+        uses: MAAP-Project/ogc-app-pack-generator@1.1.0
+        with:
+          algorithm-configuration-path: extract_tile/algorithm_config.yml
+          dockerfile-path: extract_tile/Containerfile
+          deploy-app-pack: false
+          cwl-workflow-dir: extract_tile/cwl_workflows

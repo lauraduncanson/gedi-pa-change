@@ -1,0 +1,6 @@
+duckdb>=1.1
+pandas>=2.0
+pyarrow>=15
+numpy
+pyproj>=3.6
+boto3

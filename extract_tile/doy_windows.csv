@@ -1,0 +1,47 @@
+region_class,region,hemisphere,pft_class,pft,start_date,end_date,start_doy,end_doy
+1,Europe,all,1,ENT,Jan 01,Dec 31,1,366
+1,Europe,all,2,EBT,Jan 01,Dec 31,1,366
+1,Europe,all,3,DNT,May 30,Aug 27,150,239
+1,Europe,all,4,DBT,May 30,Aug 27,150,239
+1,Europe,all,5,Shrub,Jan 01,Dec 31,1,366
+1,Europe,all,6,Grass,Jan 01,Dec 31,1,366
+2,North Asia,all,1,ENT,Jan 01,Dec 31,1,366
+2,North Asia,all,2,EBT,Jan 01,Dec 31,1,366
+2,North Asia,all,3,DNT,Jun 17,Aug 15,168,227
+2,North Asia,all,4,DBT,Jun 05,Sep 02,156,245
+2,North Asia,all,5,Shrub,Jan 01,Dec 31,1,366
+2,North Asia,all,6,Grass,Jan 01,Dec 31,1,366
+3,Australasia,all,1,ENT,Jan 01,Dec 31,1,366
+3,Australasia,all,2,EBT,Jan 01,Dec 31,1,366
+3,Australasia,all,3,DNT,Jan 01,Dec 31,1,366
+3,Australasia,all,4,DBT,Jan 01,Dec 31,1,366
+3,Australasia,all,5,Shrub,Jan 01,Dec 31,1,366
+3,Australasia,all,6,Grass,Jan 01,Dec 31,1,366
+4,Africa,N,1,ENT,Jan 01,Dec 31,1,366
+4,Africa,N,2,EBT,Jan 01,Dec 31,1,366
+4,Africa,N,4,DBT,Jul 14,Oct 11,195,284
+4,Africa,N,5,Shrub,Jan 01,Dec 31,1,366
+4,Africa,N,6,Grass,Jan 01,Dec 31,1,366
+4,Africa,S,1,ENT,Jan 01,Dec 31,1,366
+4,Africa,S,2,EBT,Jan 01,Dec 31,1,366
+4,Africa,S,4,DBT,Feb 13,Apr 13,44,103
+4,Africa,S,5,Shrub,Feb 07,Apr 07,38,97
+4,Africa,S,6,Grass,Jan 11,Apr 10,11,100
+5,South Asia,all,1,ENT,Jan 01,Dec 31,1,366
+5,South Asia,all,2,EBT,Jan 01,Dec 31,1,366
+5,South Asia,all,3,DNT,Jul 27,Sep 24,208,267
+5,South Asia,all,4,DBT,Jul 27,Sep 24,208,267
+5,South Asia,all,5,Shrub,Jan 01,Dec 31,1,366
+5,South Asia,all,6,Grass,Jan 01,Dec 31,1,366
+6,South America,all,1,ENT,Jan 01,Dec 31,1,366
+6,South America,all,2,EBT,Jan 01,Dec 31,1,366
+6,South America,all,3,DNT,Jan 01,Dec 31,1,366
+6,South America,all,4,DBT,Dec 30,Mar 28,364,87
+6,South America,all,5,Shrub,Jan 01,Dec 31,1,366
+6,South America,all,6,Grass,Jan 01,Dec 31,1,366
+7,North America,all,1,ENT,Jan 01,Dec 31,1,366
+7,North America,all,2,EBT,Jan 01,Dec 31,1,366
+7,North America,all,3,DNT,Jun 14,Sep 11,165,254
+7,North America,all,4,DBT,Jun 14,Sep 11,165,254
+7,North America,all,5,Shrub,Jan 01,Dec 31,1,366
+7,North America,all,6,Grass,Jan 01,Dec 31,1,366
