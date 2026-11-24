@@ -5,11 +5,13 @@ import re
 
 MANIFEST = "s3://nasa-maap-data-store/file-staging/nasa-map/gedi-tiled-v3/manifest.txt"
 YEARS = {2019, 2020, 2021, 2024, 2025, 2026}
-# Where DPS job outputs appear on the Hub. Finished tiles are found by their summary_<tile>.json.
-# DPS appends a deployment number to the folder (e.g. gedi-pa-change-extract-tile_14/main/...),
-# so match any deployment. Do not search all of dps_output: it holds other projects and the
-# recursive glob over the bucket mount takes minutes.
-DPS_OUTPUT = "/home/jovyan/my-private-bucket/dps_output/gedi-pa-change-extract-tile*"
+# Where DPS job outputs are. Finished tiles are found by their summary_<tile>.json.
+# Read straight from S3 by default: the Hub bucket mount (my-private-bucket) can drop
+# ("Transport endpoint is not connected"), and listing S3 is much faster than globbing the mount.
+# The prefix matches every deployment (gedi-pa-change-extract-tile_14/main/..., _15, ...).
+# A local folder or glob pattern also works, e.g.
+#   /home/jovyan/my-private-bucket/dps_output/gedi-pa-change-extract-tile*
+DPS_OUTPUT = "s3://maap-ops-workspace/lduncanson/dps_output/gedi-pa-change-extract-tile"
 JOBS_CSV = "dps/jobs.csv"
 
 
@@ -32,6 +34,20 @@ def all_tiles(manifest=MANIFEST):
     return sorted(tiles)
 
 
+def output_files(root=DPS_OUTPUT, prefix="summary_", suffix=".json"):
+    """Paths of DPS output files named <prefix>*<suffix> under root (an s3:// prefix or a local glob)."""
+    if root.startswith("s3://"):
+        import boto3
+        bucket, key = root[5:].split("/", 1)
+        out = []
+        for page in boto3.client("s3").get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=key):
+            for o in page.get("Contents", []):
+                name = o["Key"].rsplit("/", 1)[-1]
+                if name.startswith(prefix) and name.endswith(suffix):
+                    out.append(f"s3://{bucket}/{o['Key']}")
+        return out
+    return glob.glob(os.path.join(root, "**", f"{prefix}*{suffix}"), recursive=True)
+
+
 def done_tiles(root=DPS_OUTPUT):
-    files = glob.glob(os.path.join(root, "**", "summary_*.json"), recursive=True)
-    return {os.path.basename(f)[len("summary_"):-len(".json")] for f in files}
+    return {os.path.basename(f)[len("summary_"):-len(".json")] for f in output_files(root)}

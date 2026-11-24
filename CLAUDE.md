@@ -76,13 +76,18 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
 - One job per tile, about 8 GB of memory. A tile is done when its `summary_<tile>.json` exists
   under the DPS output folder. Outputs land in
   `/home/jovyan/my-private-bucket/dps_output/gedi-pa-change-extract-tile_<N>/main/<yyyy>/<mm>/<dd>/...`,
-  where `<N>` is the deployment number (14 as of 2026-11-24). The default `--done-dir` is the
-  wildcard `.../dps_output/gedi-pa-change-extract-tile*`; never point it at all of `dps_output`
-  (other projects live there and the search takes minutes). Never resubmit finished tiles.
+  where `<N>` is the deployment number (14 as of 2026-11-24). On S3 that is
+  `s3://maap-ops-workspace/lduncanson/dps_output/gedi-pa-change-extract-tile_<N>/...`.
+  The default `--done-dir` (`common.DPS_OUTPUT`) is that S3 prefix, read with boto3/DuckDB:
+  the bucket mount can drop ("Transport endpoint is not connected", not fixed by a Hub
+  restart on 2026-11-24) and globbing it is slow. If the mount looks empty, `--resubmit`
+  without `--tiles` would resubmit everything. Never resubmit finished tiles.
+- Full extraction run finished 2026-11-24: all 12,080 tiles done (6 needed one retry after
+  DPS credential/502 errors). Merged table: `dps/collect.py` -> `output/gedi_pa_change_cells.parquet`.
 - Ramp up: 2 test tiles (`S13_E028`, `N11_W005`), then 100, then all. Check outputs at each step.
   Job ids are logged in `dps/jobs.csv` (not committed).
-- Not yet confirmed: that DPS workers can read the gedi-tiled-v3 bucket, the right queue name,
-  and where job outputs land. The two test tiles are meant to settle these.
+- Confirmed by the test tiles: DPS workers can read gedi-tiled-v3; queue `maap-dps-worker-16gb`
+  works (process id 237; ~15 s per tile, ~200 tiles/min); output location as above.
 
 ## Matching (next on the critical path)
 
