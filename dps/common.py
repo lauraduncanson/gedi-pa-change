@@ -6,7 +6,10 @@ import re
 MANIFEST = "s3://nasa-maap-data-store/file-staging/nasa-map/gedi-tiled-v3/manifest.txt"
 YEARS = {2019, 2020, 2021, 2024, 2025, 2026}
 # Where DPS job outputs appear on the Hub. Finished tiles are found by their summary_<tile>.json.
-DPS_OUTPUT = "/home/jovyan/my-private-bucket/dps_output"
+# DPS appends a deployment number to the folder (e.g. gedi-pa-change-extract-tile_14/main/...),
+# so match any deployment. Do not search all of dps_output: it holds other projects and the
+# recursive glob over the bucket mount takes minutes.
+DPS_OUTPUT = "/home/jovyan/my-private-bucket/dps_output/gedi-pa-change-extract-tile*"
 JOBS_CSV = "dps/jobs.csv"
 
 

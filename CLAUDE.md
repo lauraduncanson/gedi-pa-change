@@ -74,8 +74,11 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
   `maap.deploy_algorithm(...)` from the committed CWL (deployment job 499, 2026-11-23).
   Confirm it deployed and get the process id with `maap.list_algorithms()`.
 - One job per tile, about 8 GB of memory. A tile is done when its `summary_<tile>.json` exists
-  under the DPS output folder (default `/home/jovyan/my-private-bucket/dps_output`; pass
-  `--done-dir` if outputs land elsewhere). Never resubmit finished tiles.
+  under the DPS output folder. Outputs land in
+  `/home/jovyan/my-private-bucket/dps_output/gedi-pa-change-extract-tile_<N>/main/<yyyy>/<mm>/<dd>/...`,
+  where `<N>` is the deployment number (14 as of 2026-11-24). The default `--done-dir` is the
+  wildcard `.../dps_output/gedi-pa-change-extract-tile*`; never point it at all of `dps_output`
+  (other projects live there and the search takes minutes). Never resubmit finished tiles.
 - Ramp up: 2 test tiles (`S13_E028`, `N11_W005`), then 100, then all. Check outputs at each step.
   Job ids are logged in `dps/jobs.csv` (not committed).
 - Not yet confirmed: that DPS workers can read the gedi-tiled-v3 bucket, the right queue name,
