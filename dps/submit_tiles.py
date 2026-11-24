@@ -55,8 +55,12 @@ def main():
         for i, t in enumerate(todo, 1):
             r = maap.submit_job(process_id=a.process_id, inputs={"tile": t}, queue=a.queue,
                                 dedup=True, tag=a.tag)
-            job_id = r.json().get("id") if r.status_code == 202 else ""
-            if not job_id:
+            # OGC execution responses call it "jobID"; keep "id" as a fallback.
+            body = r.json() if r.status_code in (200, 201, 202) else {}
+            job_id = body.get("jobID") or body.get("id") or ""
+            if r.status_code == 202 and not job_id:
+                print(f"  {t}: accepted (202) but no job id in response; find it with maap.list_jobs()")
+            elif not job_id:
                 print(f"  {t}: submission failed ({r.status_code}) {r.text[:200]}")
             w.writerow([t, job_id, r.status_code, time.strftime("%Y-%m-%dT%H:%M:%S")])
             f.flush()
