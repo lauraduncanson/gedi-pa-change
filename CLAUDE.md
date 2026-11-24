@@ -83,7 +83,10 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
   restart on 2026-11-24) and globbing it is slow. If the mount looks empty, `--resubmit`
   without `--tiles` would resubmit everything. Never resubmit finished tiles.
 - Full extraction run finished 2026-11-24: all 12,080 tiles done (6 needed one retry after
-  DPS credential/502 errors). Merged table: `dps/collect.py` -> `output/gedi_pa_change_cells.parquet`.
+  DPS credential/502 errors). Merged table: `dps/collect.py` -> `output/gedi_pa_change_cells.parquet`
+  (one row per tile x cell x epoch). Then `dps/combine_cells.py` pools cells on tile edges ->
+  `output/gedi_pa_change_cells_combined.parquet` (one row per cell x epoch, 76.4 M rows; `n_tiles`
+  > 1 for ~1.4% of rows). Use the combined table for matching and all aggregates.
 - Ramp up: 2 test tiles (`S13_E028`, `N11_W005`), then 100, then all. Check outputs at each step.
   Job ids are logged in `dps/jobs.csv` (not committed).
 - Confirmed by the test tiles: DPS workers can read gedi-tiled-v3; queue `maap-dps-worker-16gb`
