@@ -1,7 +1,28 @@
 # Brazil first look: Veronika's V3 pipeline vs ours
 
-2026-11-26. Read-only review of Veronika Leitold's Brazil pipeline, plus the status of our own
-Brazil run. Nothing under `shared-buckets/leitoldv/` was modified.
+2026-11-26. Read-only review of Veronika Leitold's Brazil pipeline, our first Brazil
+difference-in-differences (DiD) on her matches, and the regression-to-the-mean (RTM) check.
+Nothing under `shared-buckets/leitoldv/` was modified.
+
+**Headline**
+- **Our AGBD DiD: +4.61 Mg/ha**, weighted by PA cells, over the 753 of 1,144 matched PAs that
+  pass the 10-cell rule. Area-weighted it is **+4.07**.
+- Her CSV gives **+4.08** (area-weighted, 1,107 PAs).
+- **Over the 752 PAs in both sets, with the same weights:**
+
+  | Weights | Ours | Hers |
+  |---|---|---|
+  | Area | +4.04 | +4.03 |
+  | Our PA cells | +4.61 | +4.98 |
+
+  The two pipelines agree at national level, even though they use different shots
+  (different beams, filters and season rules).
+- **The RTM check finds a control-minus-protected gap of −3.21 Mg/ha** at the same L4B
+  baseline. By the check's own reading, up to about 3 Mg/ha of the +4.6 could be regression to
+  the mean from matching on GEDI L4B. Without the four sparse bins at 325 Mg/ha and above, the
+  gap is −2.07.
+- **The planned sensitivity run is now needed:** re-match without L4B
+  (`matching/README.md`, RTM check 2).
 
 Abbreviations: `G` = `/home/jovyan/shared-buckets/leitoldv/GEDI_global_change/`,
 `M` = `G/gedi_change_brazil/repo/matching/`. Notebook cell numbers are 0-based.
@@ -11,10 +32,10 @@ Abbreviations: `G` = `/home/jovyan/shared-buckets/leitoldv/GEDI_global_change/`,
 | Step | Status |
 |---|---|
 | 1. Report on Step123/4/5/6 and the TMF notebook | Done (sections 1-2). Key facts spot-checked against the source. |
-| 2. Differences from our `extract_tile.py` / `analysis/did_country.py` | Done for `extract_tile.py` (section 3). **`analysis/did_country.py` does not exist**, in this repo, its history, or `/home/jovyan/GEDI`. |
+| 2. Differences from our `extract_tile.py` / `analysis/did_country.py` | Done (section 3). |
 | 3. `dps/monitor.py`, then `dps/collect.py` | `monitor.py`: 12,080 / 12,080 tiles done. `collect.py` was **not re-run**: it already ran on 2026-11-24 21:13 UTC, after the newest tile output (19:30 UTC), and `combine_cells.py` ran after it. A re-run would reproduce the same table. |
-| 4. `analysis/did_country.py` and `analysis/rtm_check.py` for BRA | **Not run. Neither script exists, and there is no `matching/README.md`**, here or in `M`. The inputs are ready (section 5). |
-| 5. This file | Done. Section 6 compares the two pipelines' inputs and methods. We have **no Brazil DiD numbers of our own yet** to put against her CSV. |
+| 4. `analysis/did_country.py` and `analysis/rtm_check.py` for BRA | Done (sections 5 and 7). Run with the decisions recorded in CLAUDE.md on 2026-11-26. |
+| 5. This file | Done, including the side-by-side with her CSV (section 6). |
 
 ## 1. Veronika's V3 pipeline (Steps 1-6)
 
@@ -241,10 +262,18 @@ An R notebook. The last section is dated 4/8/2026. I did not review `..._v2.ipyn
 | Cell eligibility | Any cell with shots | ≥ 2 shots and ≥ 2 tracks in **both** periods (a same-cell panel) |
 | Comparison unit | Aggregate only (PA, matched set, country, biome); minimum n per epoch | PA (pooled PA vs pooled controls); QC n_shots ≥ 5, applied after writing |
 
-The other half of item 2 needs our `analysis/did_country.py`, which doesn't exist yet. I can only compare her Step 6 design with the CLAUDE.md rules:
-- "Never cell-to-cell": her design is consistent with it, since she aggregates per PA.
-- "Minimum sample size in each epoch, and report how many units qualify": she reports the count only after the CSV is written.
-- "Decide filters, minimum sample sizes and headline comparison before looking": not determinable from the code.
+**Her Step 6 vs our `analysis/did_country.py`:**
+
+| Item | Ours | Hers |
+|---|---|---|
+| Unit | PA: its cells vs its matched controls | Same |
+| Within-PA mean | Mean of cell means, equal weight per cell | Same |
+| PA/control labels | Every row of the matching table, so a reused control counts for each PA | Rasterized, so one label per cell and reused controls are lost |
+| Same-cell panel | No (T1 and T2 cells can differ) | Yes (Step 1 requires both periods in every cell) |
+| Minimum n | 10 cells in each of PA/control × T1/T2, per metric, decided before running | n_shots ≥ 5 per group, applied after writing |
+| Country summary | Weighted by PA cells (area totals later) | Weighted by GIS_AREA |
+| Metrics | RH98, RH50, PAI, FHD, cover, AGBD | rh_98, agbd, cover, pai, wsci |
+| Uncertainty | Per-PA SE assuming independent cells (a lower bound) | Wilcoxon test across PAs |
 
 ## 4. Likely problems in her pipeline
 
@@ -265,39 +294,179 @@ These are from code reading. My confidence is given for each.
    - `_elevfilt` overwrites the V3 cell-mean RDS.
    - Some notebook outputs are stale.
 
-## 5. Our side: what's ready for the Brazil run
+## 5. Our Brazil DiD (`analysis/did_country.py`)
 
-**Extraction**
-- All 12,080 tiles are done.
-- `output/gedi_pa_change_cells_combined.parquet`: 76,377,681 rows, one per cell × epoch, with n/mean/sd for all 6 metrics. Tile-edge cells are pooled, and the pooling was checked against raw shots.
+**Run**
 
-**Joining her matches to our cells**
-- Verified: her `lat`/`lon` sit exactly at EASE2 cell centres (offset 0.5/0.5 in every row), so each converts to exactly one of our `cell_id`s.
-- Her 538,587 matched cells have our GEDI data in **424,993 (T1)** and **373,511 (T2)** cells.
-- That's fewer than all of them because our rules are stricter (power beams, DOY windows, l2b/l4a flags) and our data source is different.
+```bash
+python analysis/did_country.py --iso3 BRA \
+  --matches <G>/MATCHING_results_V3/BRA_allPA_matched_results_V3.RDS \
+  --cells output/gedi_pa_change_cells_combined.parquet --out results
+```
 
-**Reading her RDS files**
-- R isn't installed on this Hub image. For this review I installed `pyreadr` into a scratchpad folder, not into the notebook environment.
+- Decisions as recorded in CLAUDE.md on 2026-11-26: per-PA unit with reused controls counted for
+  each PA, at least 10 cells per group, all-beam V3 matches, equal cell weights within a PA, PA
+  cells as country weights.
+- Run time: 16 s.
+- Outputs: `results/BRA_did_by_pa.csv` (one row per PA × metric) and
+  `results/BRA_did_summary.csv`.
+- R isn't installed on the Hub, so `pyreadr` came from a scratchpad folder, not the notebook
+  environment.
 
-**What's missing**
-- `analysis/did_country.py`, `analysis/rtm_check.py` and `matching/README.md`. I didn't write them.
-- CLAUDE.md says filters, minimum sample sizes and the headline comparison must be decided **before** looking at PA-versus-control results. Writing the DiD script myself would mean choosing those on the spot. These decisions are needed first:
-  1. **Unit:** per PA, as she does, or per matched group.
-  2. **Minimum n per epoch** at that unit (cells? shots?), and how many units qualify.
-  3. **Which matches:** her all-beam V3 matches, or wait for power-beam matches.
-  4. **Reused controls:** how to handle controls reused across PAs, and cells in overlapping PAs (keep every row of the matching table, rather than rasterizing as Step 5 does).
-  5. **Weighting:** per-cell means weighted by shots or not; area weighting for national summaries.
-  6. **"RTM check":** what exactly it should test. I'm assuming a regression-to-the-mean check comparing PA and control T1 levels against their change.
+**Inputs**
+- 1,147 PAs with matches: 370,434 PA rows and 370,434 control rows.
+- 1,144 PAs have at least one matched cell with our GEDI data.
+- Her `lat`/`lon` are exact EASE2 cell centres, so the join to our `cell_id` is one to one.
 
-## 6. Comparing with her final CSV
+**Country summary** (PAs with at least 10 cells in all four groups; PAs weighted by their PA cells):
 
-We have **no Brazil DiD numbers yet** (section 5), so a like-for-like comparison isn't possible. Once we do, expect differences for these reasons, even with the same matches:
+| Metric | PAs qualifying | T1 PA | T1 control | Change PA | Change control | **DiD** | DiD median | PAs with DiD < 0 |
+|---|---|---|---|---|---|---|---|---|
+| RH98 (m) | 753 / 1,144 | 23.04 | 22.18 | -0.81 | -1.22 | **+0.41** | +0.32 | 38% |
+| RH50 (m) | 753 / 1,144 | 12.14 | 11.59 | -0.57 | -0.81 | **+0.25** | +0.13 | 41% |
+| PAI | 753 / 1,144 | 3.76 | 3.59 | -0.20 | -0.27 | **+0.065** | +0.027 | 43% |
+| FHD | 753 / 1,144 | 2.79 | 2.75 | -0.026 | -0.048 | **+0.022** | +0.024 | 35% |
+| Cover | 753 / 1,144 | 0.669 | 0.642 | -0.012 | -0.021 | **+0.009** | +0.007 | 41% |
+| AGBD (Mg/ha) | 753 / 1,144 | 154.2 | 146.8 | -12.77 | -17.38 | **+4.61** | +2.70 | 38% |
 
-- **Beams:** we use power beams only (her CSV uses all 8).
-- **Season:** our DOY windows and her PFT-3-4 phenology leaf-off select different shots.
-- **T2:** ours runs to 2026, hers to 2025. Today both end at July 2025.
-- **Quality flags:** separate L2B/L4A flags for us. Her shared AGBD-range filter drops shots for every metric.
-- **Cell eligibility:** she requires data in both periods in the same cell; we don't.
-- **Labels:** her rasterized labels likely lose shared controls (section 4, item 3). Joining on the full matching table fixes that.
+**Why PAs fail the 10-cell rule** (AGBD; a PA can fail on several groups):
+- 311 have too few PA cells in T1
+- 350 have too few PA cells in T2
+- 314 have too few control cells in T1
+- 334 have too few control cells in T2
 
-Her headline for reference: area-weighted ΔΔ AGBD = **+4.08 Mg/ha** (PA -8.5, control -12.6 Mg/ha), with 1,107 of 1,147 PAs passing `n_shots >= 5`.
+These are mostly small PAs.
+
+**AGBD by group** (area-weighted, for comparison with her summaries):
+
+| Group | PAs | DiD (Mg/ha) |
+|---|---|---|
+| Indigenous territories | 319 | +4.74 |
+| Other PAs | 434 | +3.61 |
+| Amazon | 399 | +4.61 |
+| Mata Atlântica | 132 | +7.01 |
+| Cerrado | 151 | -0.37 |
+| Caatinga | 49 | +0.40 |
+| Pantanal | 15 | +2.06 |
+| Pampa | 7 | -3.75 |
+
+**Points to note**
+- **T1 balance is off.** Matched controls start lower than PAs in every metric: AGBD 146.8 vs
+  154.2 Mg/ha (cell-weighted), and 160.1 vs 171.7 area-weighted over the common PAs. CLAUDE.md asks
+  for a balance check on T1 GEDI structure, and this fails it despite matching on L4B. A
+  lower-biomass control group is exactly the setting where regression to the mean can produce
+  a positive DiD (section 7).
+- **The standard errors in `BRA_did_by_pa.csv` assume independent cells**, so they're too small.
+  I haven't used them for any test.
+
+## 6. Side by side with her final CSV
+
+Her CSV: `G/EXTRACTED_gedi_V3/BRA_pa_final_PROT_vs_CONT_change_metrics_V3.csv`. I reproduced her
+QC from Step 6 cell 9 (`n_shots >= 5` in all four groups and non-missing AGBD change): 1,107 PAs,
+area-weighted ΔΔ AGBD **+4.08**, matching her printed value.
+
+**AGBD DiD (Mg/ha)**
+
+| | Ours | Hers |
+|---|---|---|
+| PAs | 753 (10-cell rule) | 1,107 (her QC) |
+| Area-weighted (GIS_AREA), own PA set | **+4.07** | **+4.08** |
+| PA-cell-weighted, own PA set | +4.61 | +4.67 |
+| Median across PAs, own PA set | +2.70 | +1.45 |
+| PA change / control change, area-weighted | -12.00 / -16.07 | -8.51 / -12.59 |
+| **752 common PAs, area weights** | **+4.04** | **+4.03** |
+| 752 common PAs, our PA-cell weights | +4.61 | +4.98 |
+| 752 common PAs, median | +2.67 | +2.06 |
+
+**PA-by-PA agreement** (752 common PAs)
+- Correlation of DiD: 0.62. Same sign: 77% of PAs.
+- Correlation of PA change: 0.81.
+- Correlation of T1 PA level: 1.00 (rounded). Between-PA differences in biomass dominate this.
+- T1 AGBD level, area-weighted: ours 171.7 PA / 160.1 control; hers 167.3 / 151.3.
+
+**Reading**
+- **National: the same answer.** Both pipelines give about +4 Mg/ha with the same weights. Ours
+  uses power beams, DOY windows, separate L2B/L4A flags and no same-cell panel. Hers uses all
+  beams, phenology-based leaf-off and a same-cell panel.
+- **Per PA: noisier.** A 0.62 correlation means individual PAs move a lot between pipelines.
+  Per-PA results shouldn't be reported without uncertainty that allows for spatial correlation.
+- **Both changes are more negative in ours** (-12.0 vs -8.5 for PAs, area-weighted), while the
+  difference between groups is the same. This fits a common offset from instrument or epoch
+  choices (power beams, our season windows) that cancels in the DiD. That's why CLAUDE.md treats
+  the DiD as the headline and absolute change as secondary.
+- **Reused controls didn't change the national number.** Ours keeps every PA's controls; hers
+  loses some to rasterizing. National agreement suggests the lost controls weren't systematically
+  different. I haven't tested this directly.
+
+## 7. Regression-to-the-mean check (`analysis/rtm_check.py`)
+
+**Run**
+
+```bash
+python analysis/rtm_check.py --iso3 BRA \
+  --matches <G>/MATCHING_results_V3/BRA_allPA_matched_results_V3.RDS \
+  --cells output/gedi_pa_change_cells_combined.parquet \
+  --l4b <G>/INPUT_covariates_2020/gedi_l4b.tif \
+  --disturbance "<G>/INPUT_covariates_2020/BRA_*_frac_1km.tif" --out results
+```
+
+- The `shared-buckets` mount dropped mid-run. The rasters and the RDS were downloaded from S3
+  (`s3://maap-ops-workspace/shared/leitoldv/GEDI_global_change/...`, byte sizes identical) and
+  read from a local copy.
+- Run time: 2 min 16 s.
+- Outputs: `results/BRA_rtm_bins.csv` and `results/BRA_rtm.png`.
+
+**Setup**
+- Undisturbed cells are those where all four 2022-2024 disturbance fractions are 0
+  (deforestation, degradation-other, degradation-fire, fire-only): 244,317 matched cells with L4B
+  and GEDI data.
+- Bins are 25 Mg/ha wide. A bin needs at least 20 T2 cells in each group.
+- **Check of the inputs:** L4B values sampled from `gedi_l4b.tif` at our cell centres equal the
+  `gedi_l4b` column in her matching table for 20,000 of 20,000 random rows. So the baseline the
+  check bins on is exactly the one the matching used.
+
+**Result: T2 − L4B, control minus protected, at the same baseline = −3.21 Mg/ha** (17 bins,
+weighted by cells).
+- The four bins at 325-425 Mg/ha are sparse on the control side (368, 128, 64 and 29 T2 cells)
+  and have large gaps (−30 to −119 Mg/ha). They contribute −1.19 of the −3.21.
+- Without them (13 bins below 325) the gap is **−2.07**. The unweighted mean over bins 25-300
+  is −3.67.
+- Bin 0-25 Mg/ha (52k cells) has a gap of +0.43, which pulls the weighted average toward 0.
+
+**What the plot shows** (`results/BRA_rtm.png`)
+- **T1 − L4B** stays near 0 to +5 Mg/ha in both groups up to about 400 Mg/ha. T1 shares shots
+  with L4B, as the docstring expects.
+- **T2 − L4B** follows the same curve in both groups up to about 200 Mg/ha. Above that it falls in
+  both, as L4B error regresses out, but it falls faster for controls from about 300 Mg/ha
+  (−66 vs −37 at 325-350).
+- Between 50 and 150 Mg/ha, controls also sit 4-6 Mg/ha below protected cells.
+
+**Reading, per the docstring**
+- The gap is negative, so **part of the +4.6 Mg/ha AGBD DiD may be regression to the mean**
+  from matching on GEDI L4B. On this check, the RTM component is about 2-3 Mg/ha, depending on
+  how much weight the sparse high-biomass bins get. That's half or more of the effect.
+- This doesn't show the effect is zero. It shows that, with these matches, AGBD can't be
+  separated from RTM. RH98 and the other structure metrics have the same exposure, because the
+  matching covariate is GEDI-derived.
+
+**Caveats**
+- The disturbance layers cover 2022-2024 only. Disturbance in 2019-2021 or 2025 isn't excluded.
+- TMF `DegradationYear` is the first degradation year, so repeat degradation can be missed
+  (section 2).
+- The comparison isn't weighted by PA; large PAs dominate the bins.
+
+## 8. Next steps (suggested)
+
+1. **Sensitivity run without L4B** (`matching/README.md`, RTM check 2):
+   - Re-match Brazil with `gedi_l4b` removed from the propensity model, everything else unchanged.
+   - Run `did_country.py` on both sets of matches. If the DiD falls by about 2-3 Mg/ha, the
+     current estimate is mostly RTM.
+   - This needs the matching on DPS and Veronika's agreement to use her code.
+2. **Optional:** match on L4B in 50 Mg/ha classes instead of as a continuous covariate
+   (`matching/README.md`).
+3. **T1 balance:** report T1 PA vs control for every metric with each result, and consider
+   requiring balance on T1 GEDI structure.
+4. **Uncertainty:** the current per-PA SEs ignore spatial correlation. A block bootstrap over
+   PAs (or over matched groups within PAs) is needed before any significance claims.
+5. **Fix the earlier matching issues before running other countries:** Gaussian vs logistic
+   propensity model, and biome/ecoregion strata that never apply (section 4).
