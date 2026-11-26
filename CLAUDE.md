@@ -137,6 +137,26 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
 - Report T1 PA-minus-control balance (AGBD, RH98) with every DiD. Cells without L4B drop out of
   matching; that is acceptable (they mostly lack GEDI data too).
 
+## Global matching design (Laura, 2026-11-26)
+
+Global steps 1-3 built only from global layers, then her V3 step 4 (DPS v4) with continuous L4B:
+- **Covariates: the 2020 set**, as in her Brazil V3, from
+  `leitoldv/GEDI_global_change/INPUT_covariates_2020/`: d2roads, dcities, dem, slope,
+  pop_cnt_2020, pop_den_2020, tt2cities_2015, WorldClim 2010-2018 (prec, tavg, tmax, tmin),
+  gedi_l4b; land cover = `lc2020` (7 classes: forest, grassland, agriculture, wetlands,
+  artificial, bare/other, water) as the exact land-cover stratum (replaces Brazil-only MapBiomas).
+- **Exact matching on WWF ecoregion** (`wwf_ecoreg`; her code falls back to dropping ecoregion when
+  matching fails), plus land cover. Biome and ecoregion are written as R factors with the same
+  levels in PA and control tables so her strata apply (in her Brazil V3 they were numeric and
+  never applied; her Brazil inputs are left as they are).
+- **Matching unit: country x WWF biome** (like her Brazil biome regions), each with its own
+  control pool; PAs spanning biomes are split by biome.
+- **Grid:** 1 km EASE2 cells with GEDI data in either epoch (combined cell table), centre inside
+  the country. **Treatment:** cell fully inside a PA (centre and four corners inside; her rule
+  was >= 99.9% inside), PAs as in the global PA change analysis (designated / inscribed /
+  established, no UNESCO-MAB). **Controls:** cell centre more than 10 km from every WDPA polygon
+  (any status), as in her Brazil V3.
+
 ## PAs without a valid counterfactual (Laura, 2026-11-26; to implement in analysis/totals.py)
 
 No cross-border matching (national trends differ too much to assume comparable controls).
