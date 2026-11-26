@@ -222,18 +222,23 @@ def main():
     ids = all_cell_ids(a.cells, os.path.join(a.inputs, "cell_ids.npy"))
     xs, ys = xy(ids)
     s3 = boto3.client("s3")
+    def save(rows):
+        man = pd.DataFrame(rows)
+        if os.path.exists(a.manifest) and len(man):
+            old = pd.read_csv(a.manifest)
+            man = pd.concat([old[~old.iso3.isin(man.iso3.unique())], man], ignore_index=True)
+        os.makedirs(os.path.dirname(os.path.abspath(a.manifest)), exist_ok=True)
+        man.to_csv(a.manifest, index=False)
+        return man
+
     rows = []
     for iso3 in isos:
         try:
             rows += country(iso3, a, ids, xs, ys, s3)
+            man = save(rows)  # after every country, so a crash never loses finished countries
         except Exception as e:
             print(f"{iso3}: FAILED {type(e).__name__}: {e}", flush=True)
-    man = pd.DataFrame(rows)
-    if os.path.exists(a.manifest):
-        old = pd.read_csv(a.manifest)
-        man = pd.concat([old[~old.iso3.isin(man.iso3.unique())] if len(man) else old, man], ignore_index=True)
-    os.makedirs(os.path.dirname(os.path.abspath(a.manifest)), exist_ok=True)
-    man.to_csv(a.manifest, index=False)
+    man = save(rows)
     print(f"manifest: {a.manifest} ({len(man)} units)")
 
 
