@@ -46,9 +46,11 @@ match_wocat <- function(df, pid) {
                     dat <- dplyr::select(this_d, lat, lon, UID, status, land_cover, wwfbiom, wwfecoreg, 
                                          elevation, slope, mean_temp, max_temp, min_temp, prec,
                                          d2road, d2city, tt2city, popden, popcnt, gedi_l4b) 
-                    ps_A <- glm(status ~ mean_temp + max_temp + min_temp + prec + elevation + slope + d2road + d2city + popden + popcnt + tt2city + gedi_l4b, data = dat)
+                    # gedi-pa-change patch: ps_formula (set in the step 4 script) replaces the
+                    # hard-coded formula here and below; identical for covariates = with_l4b.
+                    ps_A <- glm(ps_formula, data = dat)
                     dat$propensity_scoreA <- fitted(ps_A)
-                    f <- status ~ mean_temp + max_temp + min_temp + prec + elevation + slope + d2road + d2city + popden + popcnt + tt2city + gedi_l4b
+                    f <- ps_formula
                     this_d <- bind_cols(this_d, propensity_scoreA=dat$propensity_scoreA)
                     # Can't stratify by land cover or climate if they only have one level
                     if (nlevels(this_d$land_cover) >= 2) {
@@ -99,7 +101,7 @@ match_wocat <- function(df, pid) {
                       
                       this_d$land_cover <- droplevels(this_d$land_cover)
                       #this_d$wwfbiom <- droplevels(this_d$wwfbiom)
-                      f <- status ~ mean_temp + max_temp + min_temp + prec + elevation + slope + d2road + d2city + popden + popcnt + tt2city + gedi_l4b
+                      f <- ps_formula
                       if (nlevels(this_d$land_cover) >= 2) {
                         f <- update(f, ~ . + strata(land_cover))
                       } else {
@@ -165,7 +167,7 @@ propensity_filter <- function(pa_df, d_control_local) {
   d_all$status <- ifelse(d_all$status==TRUE,1,0)
   
   #calculate the propensity scores & filter out controls not overlapping w/ treatment propensity scores
-  ps <- glm(status ~ mean_temp + max_temp + min_temp + prec + elevation + slope + d2road + d2city + popden + popcnt + tt2city + gedi_l4b, data = d_all)
+  ps <- glm(ps_formula, data = d_all)  # gedi-pa-change patch: was the hard-coded formula
   # boxplot(ps) # check the distribution of propensity scores for treatment and controls
   # filter out the controls with propensity scores outside of the overlapping region
   d_all$propensity_score <- fitted(ps)

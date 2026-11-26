@@ -14,17 +14,38 @@
 #   Rscript /projects/my-public-bucket/GEDI_global_change/gedi_change_brazil/repo/gedi_change_step4_V2_cmd.R BPp 10
 #-------------------------------------------------------------------------------------
  
+#-------------------------------------------------------------------------------------
+# gedi-pa-change patch (DPS): extra arguments
+#   Rscript gedi_change_step4_V3_cmd.R <iso3> <covariates> <n_cores> <in_dir> <out_dir>
+#   covariates: with_l4b (her V3 model) or no_l4b (gedi_l4b removed from the propensity
+#               model; everything else unchanged)
+#   in_dir:     folder holding <iso3>_prepped_PAs.RDS and <iso3>_prepped_control.RDS
+#   out_dir:    results go to <out_dir>/MATCHING_results_V3/ and logs to <out_dir>/matching_log/
+#-------------------------------------------------------------------------------------
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) == 0) {
-  stop("Usage: Rscript gedi_change_step4.R <iso3> [n_cores]", call. = FALSE)
+if (length(args) < 5) {
+  stop("Usage: Rscript gedi_change_step4_V3_cmd.R <iso3> <with_l4b|no_l4b> <n_cores> <in_dir> <out_dir>",
+       call. = FALSE)
 }
- 
-iso3    <- args[1]
-n_cores <- if (length(args) >= 2) as.integer(args[2]) else 10L
- 
+
+iso3       <- args[1]
+covariates <- args[2]
+n_cores    <- as.integer(args[3])
+in_dir     <- args[4]
+out_dir    <- args[5]
+if (!covariates %in% c("with_l4b", "no_l4b")) stop("covariates must be with_l4b or no_l4b")
+
+# Propensity model covariates, as in matching_func_2025.R; gedi_l4b only for with_l4b.
+ps_covars <- c("mean_temp", "max_temp", "min_temp", "prec", "elevation", "slope",
+               "d2road", "d2city", "popden", "popcnt", "tt2city")
+if (covariates == "with_l4b") ps_covars <- c(ps_covars, "gedi_l4b")
+ps_formula <- as.formula(paste("status ~", paste(ps_covars, collapse = " + ")))
+
 cat("=== GEDI change step 4: matching ===\n")
-cat("iso3:    ", iso3, "\n")
-cat("n_cores: ", n_cores, "\n\n")
+cat("iso3:      ", iso3, "\n")
+cat("covariates:", covariates, "\n")
+cat("formula:   ", deparse(ps_formula, width.cutoff = 500L), "\n")
+cat("n_cores:   ", n_cores, "\n\n")
  
 #-------------------------------------------------------------------------------------
 # Libraries
@@ -42,20 +63,21 @@ library(data.table)
 #-------------------------------------------------------------------------------------
 # Paths and spatial inputs
 #-------------------------------------------------------------------------------------
-f.path <- "/projects/my-public-bucket/GEDI_global_change/"
- 
-adm <- terra::vect(paste0(f.path, "INPUT_countries/shp/", iso3, ".shp"))
-terra::crs(adm) <- "EPSG:4326"
- 
-source(paste0(f.path, "matching_func_2025.R"))
- 
+# gedi-pa-change patch: outputs and logs under out_dir (f.path is only used for writing below
+# and in matching_func_2025.R's logs); inputs from in_dir. The unused region shapefile read
+# (adm) is dropped.
+f.path <- paste0(normalizePath(out_dir, mustWork = TRUE), "/")
+
+script_dir <- dirname(normalizePath(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])))
+source(file.path(script_dir, "matching_func_2025.R"))
+
 #-------------------------------------------------------------------------------------
 # Load inputs
 #-------------------------------------------------------------------------------------
-d_control_local <- readRDS(paste0(f.path, "MATCHING_points_V3/", iso3, "_prepped_control.RDS"))
+d_control_local <- readRDS(file.path(in_dir, paste0(iso3, "_prepped_control.RDS")))
 d_control_local <- d_control_local[complete.cases(d_control_local), ]
- 
-all_PA_points <- readRDS(paste0(f.path, "MATCHING_points_V3/", iso3, "_prepped_PAs.RDS"))
+
+all_PA_points <- readRDS(file.path(in_dir, paste0(iso3, "_prepped_PAs.RDS")))
 cat("Control cells:", nrow(d_control_local), "\n")
 cat("PAs loaded:   ", length(all_PA_points), "\n\n")
  
@@ -89,7 +111,7 @@ if (length(remaining_ids) > 0) {
     .combine  = rbind,
     .packages = c("dplyr", "tidyr", "optmatch"),
     .export   = c("propensity_filter", "match_wocat", "foreach_rbind",
-                  "f.path", "iso3")
+                  "f.path", "iso3", "ps_formula")
   ) %dopar% {
  
     id_pa <- remaining_ids[i]
