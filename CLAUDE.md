@@ -104,6 +104,26 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
 - Run large countries first (Russia, USA, Canada, China, Australia). Check covariate balance on
   T1 GEDI structure, not only on the matching covariates.
 
+## Brazil matching on DPS (`gedi-pa-change-match-brazil`)
+
+- Veronika's Brazil V3 step 4, copied verbatim into `matching/r/brazil_v3/` (provenance in
+  `SOURCE.md`) and patched there; packaged in `matching/dps/` (conda-forge R on micromamba; an
+  Ubuntu/rocker image failed on DPS with an OpenSSL `[CRYPTO] unknown error`). The GitHub Action
+  `match-brazil.yml` builds the image (`ghcr.io/lauraduncanson/gedi-pa-change-match-brazil:main`,
+  public) and commits the CWL; register from the Hub with `maap.deploy_algorithm(...)`.
+- Use **process 248 (version v3)**. Inputs: `region` (BAe BAw BCa BCe BMa BPp BPt),
+  `covariates` (`with_l4b` = her V3 model, `no_l4b` = `gedi_l4b` dropped, nothing else changed),
+  `n_cores` (= the worker's vCPUs, e.g. 32 on `maap-dps-worker-32vcpu-64gb`), `part` (`i/n`).
+  Submit with `dps/submit_matching.py` (`--parts N` splits a region; ids in `dps/match_jobs.csv`).
+- Verified 2026-11-26: `with_l4b` reproduces her `MATCHING_results_V3` exactly for BPp and BPt
+  (same cells, propensity scores and match labels), including v3's split runs and single
+  land-cover loop. Outputs land in `dps_output/gedi-pa-change-match-brazil_14/<version>/...`
+  (`MATCHING_results_V3/<region>/*_matching_results.RDS` and `<region>_allPA_matched_results.RDS`).
+- Kept as in her code on purpose (sensitivity run = "all else unchanged"): Gaussian `glm`
+  propensity model, biome/ecoregion strata that never apply (numeric columns).
+- Data versions: her matching inputs and `brazil_tiles` shots are most likely GEDI V002 (same
+  shots sit ~2 m from gedi-tiled-v3); `gedi_l4b` is probably L4B V2.1. Our outcomes are V003.
+
 ## DiD analysis decisions (decided 2026-11-26, before looking at PA-vs-control results)
 
 Implemented in `analysis/did_country.py` and `analysis/rtm_check.py`; commands in
