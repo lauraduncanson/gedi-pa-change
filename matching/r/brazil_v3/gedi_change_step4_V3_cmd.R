@@ -21,10 +21,13 @@
 #               model; everything else unchanged)
 #   in_dir:     folder holding <iso3>_prepped_PAs.RDS and <iso3>_prepped_control.RDS
 #   out_dir:    results go to <out_dir>/MATCHING_results_V3/ and logs to <out_dir>/matching_log/
+#   part:       optional "i/n" (default 1/1): run only part i of the region's PAs, split into n
+#               parts by a fixed greedy rule on PA size. Each PA is matched independently (own
+#               seed, full regional control pool), so splitting does not change any match.
 #-------------------------------------------------------------------------------------
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 5) {
-  stop("Usage: Rscript gedi_change_step4_V3_cmd.R <iso3> <with_l4b|no_l4b> <n_cores> <in_dir> <out_dir>",
+  stop("Usage: Rscript gedi_change_step4_V3_cmd.R <iso3> <with_l4b|no_l4b> <n_cores> <in_dir> <out_dir> [i/n]",
        call. = FALSE)
 }
 
@@ -33,7 +36,10 @@ covariates <- args[2]
 n_cores    <- as.integer(args[3])
 in_dir     <- args[4]
 out_dir    <- args[5]
+part       <- if (length(args) >= 6) args[6] else "1/1"
 if (!covariates %in% c("with_l4b", "no_l4b")) stop("covariates must be with_l4b or no_l4b")
+part_i <- as.integer(sub("/.*", "", part)); part_n <- as.integer(sub(".*/", "", part))
+if (is.na(part_i) || is.na(part_n) || part_i < 1 || part_i > part_n) stop("part must be i/n with 1 <= i <= n")
 
 # Propensity model covariates, as in matching_func_2025.R; gedi_l4b only for with_l4b.
 ps_covars <- c("mean_temp", "max_temp", "min_temp", "prec", "elevation", "slope",
@@ -45,7 +51,8 @@ cat("=== GEDI change step 4: matching ===\n")
 cat("iso3:      ", iso3, "\n")
 cat("covariates:", covariates, "\n")
 cat("formula:   ", deparse(ps_formula, width.cutoff = 500L), "\n")
-cat("n_cores:   ", n_cores, "\n\n")
+cat("n_cores:   ", n_cores, "\n")
+cat("part:      ", part, "\n\n")
  
 #-------------------------------------------------------------------------------------
 # Libraries
@@ -94,7 +101,22 @@ existing_files <- list.files(paste0(f.path, "MATCHING_results_V3/", iso3),
                               full.names = TRUE)
 processed_ids  <- str_extract(basename(existing_files), "(?<=_pa_)\\d+")
 remaining_ids  <- setdiff(names(all_PA_points), processed_ids)
- 
+
+# gedi-pa-change patch: keep only this job's part of the PAs. Greedy split: PAs sorted by
+# number of complete-case cells (largest first, ties by id), each to the part with the fewest
+# cells so far (ties to the lowest part). Deterministic, so parts never overlap or miss a PA.
+if (part_n > 1) {
+  pa_size <- vapply(names(all_PA_points), function(id) {
+    d <- all_PA_points[[id]]; if (is.null(d)) 0L else sum(complete.cases(d))
+  }, integer(1))
+  ord  <- names(pa_size)[order(-pa_size, names(pa_size))]
+  load <- numeric(part_n); assign_to <- integer(length(ord)); names(assign_to) <- ord
+  for (id in ord) { k <- which.min(load); assign_to[id] <- k; load[k] <- load[k] + pa_size[id] }
+  remaining_ids <- intersect(remaining_ids, names(assign_to)[assign_to == part_i])
+  cat("part", part, ":", sum(assign_to == part_i), "of", length(ord), "PAs,",
+      load[part_i], "of", sum(load), "cells\n")
+}
+
 cat(length(processed_ids), "PAs already processed; skipping them.\n")
 cat(length(remaining_ids), "PAs remaining to process.\n\n")
  

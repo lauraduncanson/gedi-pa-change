@@ -19,17 +19,18 @@ foreach_rbind <- function(d1, d2) {
 
 #--------------------------------------------------------------------------------
 match_wocat <- function(df, pid) {
-  
-  registerDoParallel(4)
-  
+
   options("optmatch_max_problem_size"=Inf)
-    
-  # Note custom combine to handle iterations that don't return any value
-  # test nested foreach loops
-  ret <- foreach (this_lc=unique(df$land_cover),
-                  .packages=c('optmatch', 'dplyr'),
-                  .combine=foreach_rbind, .inorder=FALSE) %dopar% {
-      
+
+  # gedi-pa-change patch (performance only, results unchanged): the original ran the body
+  # below once per land-cover value, in parallel on 4 inner workers
+  #   ret <- foreach(this_lc = unique(df$land_cover), .combine = foreach_rbind, ...) %dopar% {...}
+  # but the body never uses this_lc, so every iteration computed the same result, and the
+  # caller keeps only ret[1, ]. The body now runs once; the result is then combined exactly as
+  # foreach would have combined the identical copies (see the end of this function).
+  n_lc <- length(unique(df$land_cover))
+  match_once <- function() {
+
                     this_d <- df
                     d_wocat <- filter(this_d, status)
                     # Filter out land covers that don't appear in the wocat
@@ -148,8 +149,12 @@ match_wocat <- function(df, pid) {
                       return(match_results)
                     }
                   }
-  
-  stopImplicitCluster()
+
+  # Same object as the original foreach: one land-cover value -> foreach returns the single
+  # result unchanged; two or more -> foreach_rbind of identical copies (ret[1, ] is the same
+  # for any number of copies); all NULL -> NULL.
+  one <- match_once()
+  ret <- if (n_lc >= 2) foreach_rbind(one, one) else if (n_lc == 1) one else NULL
   return(ret)
 }
 
