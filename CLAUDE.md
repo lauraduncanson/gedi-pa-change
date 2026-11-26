@@ -124,6 +124,26 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
 - Data versions: her matching inputs and `brazil_tiles` shots are most likely GEDI V002 (same
   shots sit ~2 m from gedi-tiled-v3); `gedi_l4b` is probably L4B V2.1. Our outcomes are V003.
 
+## L4B matching check in Ghana (decided 2026-11-26, before running)
+
+Brazil's AGBD DiD fell from +4.6 to +2.0 Mg/ha when L4B was dropped from the matching, but
+control T1 balance got worse (results/BRA_first_look.md, section 9). Test in a smaller country:
+- **Country: Ghana (GHA)**, using the 2025 global-pipeline step 1-3 outputs
+  (`shared/abarenblitt/GEDI_global_PA_v2/Matching_Results/GHA/`: `GHA_testPAs/prepped_pa_*_wk24.RDS`,
+  `WDPA_grids/GHA_prepped_control_wk24.RDS`). Liberia (LBR) is the practice job.
+- **Matching code: Veronika's Brazil V3 step 4 (verified)**, same for all arms. `gedi_l4b` is sampled
+  from the same global `gedi_l4b.tif`; biome/ecoregion (absent) are set to a constant, so their
+  pre-filter is inactive; `mangrove` is not used (not in her V3 model).
+- **Three arms:** `with_l4b` (L4B continuous in the propensity model, her V3), `no_l4b`, and
+  `l4b_classes` (L4B removed from the propensity model; exact matching within 50 Mg/ha classes,
+  class = floor(L4B / 50), classes >= 400 Mg/ha merged).
+- **Same DiD rules as Brazil** (per PA, >= 10 cells in each PA/control x T1/T2 group, PA-cell weights).
+- **Reported for each arm, decided now:** AGBD and RH98 DiD (weighted and median), PAs qualifying,
+  T1 PA-minus-control AGBD and RH98 (balance), and the RTM gap (all matched cells; no
+  disturbance layers exist for Ghana). The classes arm is preferred if it gives T1 balance at
+  least as good as `with_l4b` and an RTM gap closer to 0; whichever DiD that arm gives is the one
+  to carry forward. No further arms after seeing results.
+
 ## DiD analysis decisions (decided 2026-11-26, before looking at PA-vs-control results)
 
 Implemented in `analysis/did_country.py` and `analysis/rtm_check.py`; commands in
