@@ -15,7 +15,7 @@ no real change:
 Outputs <ISO3>_rtm_bins.csv, <ISO3>_rtm.png and a printed control-minus-protected gap.
 
   python analysis/rtm_check.py --iso3 BRA --matches <folder with BRA matching RDS> \
-      --cells /home/jovyan/GEDI/gedi_pa_change_cells.parquet \
+      --cells output/gedi_pa_change_cells_combined.parquet \
       --l4b /home/jovyan/shared-buckets/leitoldv/GEDI_global_change/INPUT_covariates_2020/gedi_l4b.tif \
       --disturbance "/home/jovyan/shared-buckets/leitoldv/GEDI_global_change/INPUT_covariates_2020/BRA_*_frac_1km.tif" \
       --out /home/jovyan/GEDI/results

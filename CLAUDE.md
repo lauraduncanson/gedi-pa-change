@@ -104,6 +104,26 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
 - Run large countries first (Russia, USA, Canada, China, Australia). Check covariate balance on
   T1 GEDI structure, not only on the matching covariates.
 
+## DiD analysis decisions (decided 2026-11-26, before looking at PA-vs-control results)
+
+Implemented in `analysis/did_country.py` and `analysis/rtm_check.py`; commands in
+`matching/README.md`. Always pass the combined cell table
+(`output/gedi_pa_change_cells_combined.parquet`).
+
+1. **Unit: per PA.** PA cells vs that PA's matched controls. A control reused by several PAs
+   counts for each of them (keep every row of the matching table; never rasterize labels).
+2. **Minimum sample: 10 cells** with data in each of the four groups (PA/control x T1/T2),
+   per PA and per metric. Report how many PAs qualify out of how many have matches.
+3. **Matches (Brazil, for now):** Veronika's all-beam V3 matches,
+   `leitoldv/GEDI_global_change/MATCHING_results_V3/BRA_allPA_matched_results_V3.RDS`. Beams only
+   matter for outcomes, which come from our power-beam cell table.
+4. **Weights:** equal weight per cell within a PA (mean of cell means). Country summaries weight
+   PAs by their number of PA cells for now; area-weighted totals come later (`analysis/totals.py`).
+5. **RTM check:** `analysis/rtm_check.py` tests the L4B baseline gap as in its docstring, using
+   `INPUT_covariates_2020/gedi_l4b.tif` and the four `INPUT_covariates_2020/BRA_*_frac_1km.tif`
+   layers (deforestation, degradation-other, degradation-fire, fire-only, 2022-2024); a cell is
+   undisturbed when all four are 0.
+
 ## Working style
 
 - Explain what you are about to run before running anything that submits jobs or deletes files,

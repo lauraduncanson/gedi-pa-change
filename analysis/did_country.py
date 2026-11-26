@@ -19,7 +19,7 @@ they are too small where cells are spatially correlated; read them as a lower bo
 Outputs: <ISO3>_did_by_pa.csv (one row per PA x metric) and a printed country summary.
 
   python analysis/did_country.py --iso3 BRA --matches <folder with BRA matching RDS files> \
-      --cells /home/jovyan/GEDI/gedi_pa_change_cells.parquet --out /home/jovyan/GEDI/results
+      --cells output/gedi_pa_change_cells_combined.parquet --out /home/jovyan/GEDI/results
 """
 import argparse
 import glob

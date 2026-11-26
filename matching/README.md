@@ -18,8 +18,8 @@ at least one quality-filtered, power-beam, growing-season shot in T1 or T2. It w
 centre, which is what the R code builds in step 1, plus `cell_id`.
 
 ```bash
-python dps/collect.py --out /home/jovyan/GEDI/gedi_pa_change_cells.parquet
-python matching/make_country_grid.py --cells /home/jovyan/GEDI/gedi_pa_change_cells.parquet \
+python dps/collect.py && python dps/combine_cells.py   # -> output/gedi_pa_change_cells_combined.parquet
+python matching/make_country_grid.py --cells output/gedi_pa_change_cells_combined.parquet \
     --out /home/jovyan/my-public-bucket/gedi_pa_change/country_grids --iso3 BRA
 ```
 
@@ -68,7 +68,7 @@ Brazil before any other country.
 
 1. **Brazil, existing matches** (no new matching): when the extraction finishes,
    `python analysis/did_country.py --iso3 BRA --matches <folder with Veronika's Brazil RDS files>
-   --cells /home/jovyan/GEDI/gedi_pa_change_cells.parquet --out /home/jovyan/GEDI/results`.
+   --cells output/gedi_pa_change_cells_combined.parquet --out /home/jovyan/GEDI/results`.
    Those matches were built on the old GEDI grid; PA or control cells without data under the new
    filters simply drop out of the join.
 2. **Brazil, re-matched** with the patched step 1 and the new container. Compare with step 1:
