@@ -148,6 +148,29 @@ control T1 balance got worse (results/BRA_first_look.md, section 9). Test in a s
   least as good as `with_l4b` and an RTM gap closer to 0; whichever DiD that arm gives is the one
   to carry forward. No further arms after seeing results.
 
+## Global PA change without matching (decided 2026-11-26, before running)
+
+Secondary result (absolute change; exposed to instrument/epoch bias, see Goal), separate from the
+DiD. Implemented in `analysis/pa_change_global.py`.
+- **PAs:** WDPA 2025 non-marine (`GLOBAL_PAs_all_nonMARINE_2025.gpkg`), STATUS Designated,
+  Inscribed or Established, any STATUS_YR; OECMs (PA_DEF = 0) excluded; UNESCO-MAB Biosphere
+  Reserves excluded (Protected Planet convention: their buffer/transition zones are not
+  protected). Unit: the site (WDPAID); parcels with the same WDPAID are pooled.
+- **Cell rule:** a 1 km cell belongs to a PA if its centre is inside the polygon. Cells in
+  overlapping PAs count for each PA; summaries over "all PA land" use each cell once.
+- **Change:** per PA and metric, mean of cell means in T2 minus T1 (combined cell table).
+  A PA qualifies for a metric if it has >= 10 cells with data in each epoch; report how many
+  qualify out of how many have any data.
+- **Summaries:** global, by country (ISO3), by IUCN category, by designation type, by governance
+  type, weighted by PA cells (area-weighted totals later); plus the union of PA cells by GEDI
+  region x PFT. **Context reference:** the same region x PFT summary for cells outside every PA
+  (all WDPA statuses and OECMs counted as "inside" for this purpose, so "outside" is unprotected
+  land). It is not a counterfactual; it shows change shared with the landscape, including any
+  instrument or epoch effect.
+- Caveats to state with every result: T2 ends July 2025; Jan-Apr 2024 has no GEDI data (ISS
+  storage), which affects windows early in the year; absolute change includes any time-dependent
+  instrument bias.
+
 ## DiD analysis decisions (decided 2026-11-26, before looking at PA-vs-control results)
 
 Implemented in `analysis/did_country.py` and `analysis/rtm_check.py`; commands in
