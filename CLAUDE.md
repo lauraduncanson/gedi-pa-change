@@ -157,6 +157,23 @@ Global steps 1-3 built only from global layers, then her V3 step 4 (DPS v4) with
   established, no UNESCO-MAB). **Controls:** cell centre more than 10 km from every WDPA polygon
   (any status), as in her Brazil V3.
 
+## Control buffer test: 2 km vs 10 km (Laura, 2026-11-26; decided before running)
+
+Her rule excludes controls within 10 km of any WDPA polygon. In heavily protected countries this
+leaves few controls (Costa Rica: 1,323 control cells at 10 km vs 6,809 at 2 km, for 6,445 PA
+cells). Test whether a 2 km buffer changes the estimate:
+- **Countries:** Costa Rica (CRI), Guatemala (GTM), Ghana (GHA), Cameroon (CMR); all their
+  country x biome units. Inputs from `matching/prep_country_inputs.py` with `--buffer-km 10` and
+  `--buffer-km 2` (everything else identical); matching with continuous L4B (DPS v5).
+- **Same DiD rules** as elsewhere (per PA, >= 10 cells per group, PA-cell weights).
+- **Compared per country:** AGBD and RH98 DiD (weighted and median), PAs qualifying, T1
+  PA-minus-control AGBD and RH98, and the paired difference DiD(2 km) - DiD(10 km) over PAs
+  qualifying in both, with a 95% bootstrap interval over PAs.
+- **Decision rule:** if the paired 95% interval includes 0 for both AGBD and RH98 in every
+  country with >= 10 PAs qualifying in both, edge effects are judged small and the global run
+  uses **10 km by default, 2 km for units where the 10 km pool has fewer complete control cells
+  than PA cells**. Otherwise keep 10 km everywhere (thin units go to the imputation rule).
+
 ## PAs without a valid counterfactual (Laura, 2026-11-26; to implement in analysis/totals.py)
 
 No cross-border matching (national trends differ too much to assume comparable controls).
