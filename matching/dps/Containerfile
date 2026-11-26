@@ -1,16 +1,20 @@
 # Veronika Leitold's Brazil V3 matching (step 4) for DPS. Build context is the repo root.
-# rocker/geospatial pins R and CRAN (Posit Package Manager snapshot) per tag, so package
-# versions are fixed for a given tag; it already has terra, sf, dplyr, tidyr, stringr, purrr.
-FROM rocker/geospatial:4.4.2
+# conda-forge R and Python on Debian (micromamba). An Ubuntu/rocker image failed on DPS with
+# "ssl.SSLError: [CRYPTO] unknown error" when creating an SSL context (likely Ubuntu's OpenSSL
+# entering FIPS mode on the DPS hosts); conda-forge ships its own OpenSSL.
+FROM mambaorg/micromamba:2.0.5
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3-boto3 \
-    && rm -rf /var/lib/apt/lists/*
+COPY --chown=$MAMBA_USER:$MAMBA_USER ./matching/dps/env.yml /tmp/env.yml
+RUN micromamba install -y -n base -f /tmp/env.yml && micromamba clean --all --yes
 
-RUN install2.r --error --skipinstalled optmatch foreach doParallel data.table \
-    && Rscript -e 'for (p in c("terra", "sf", "dplyr", "tidyr", "stringr", "purrr", "optmatch", "foreach", "doParallel", "data.table")) library(p, character.only = TRUE)'
+# Put the environment on PATH directly, so it works whatever entrypoint DPS uses.
+ENV PATH=/opt/conda/bin:$PATH
 
+RUN Rscript -e 'for (p in c("terra", "sf", "dplyr", "tidyr", "stringr", "purrr", "optmatch", "foreach", "doParallel", "data.table")) library(p, character.only = TRUE); sessionInfo()' \
+    && python3 -c "import ssl, boto3; ssl.create_default_context(); print('python ssl ok', boto3.__version__)"
+
+USER root
 COPY ./matching/r/brazil_v3/gedi_change_step4_V3_cmd.R ./matching/r/brazil_v3/matching_func_2025.R /app/
 COPY ./matching/dps/run_matching.sh ./matching/dps/s3_get.py /app/
-RUN chmod +x /app/run_matching.sh /app/s3_get.py \
+RUN chmod a+rx /app /app/*.R /app/run_matching.sh /app/s3_get.py \
     && ln -s /app/run_matching.sh /usr/local/bin/run_matching.sh
