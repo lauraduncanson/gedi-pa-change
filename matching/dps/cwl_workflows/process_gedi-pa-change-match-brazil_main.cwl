@@ -18,9 +18,13 @@ $graph:
       label: Covariate set
       type: string
     n_cores:
-      doc: Parallel workers over PAs (each also starts 4 inner workers), e.g. 4 or
-        8
+      doc: Parallel workers over PAs, e.g. the number of vCPUs of the queue
       label: Number of cores
+      type: string
+    part:
+      doc: Part i/n of the region's PAs to run (1/1 = all). Splitting does not change
+        any match.
+      label: Part
       type: string
   outputs:
     out:
@@ -33,6 +37,7 @@ $graph:
         region: region
         covariates: covariates
         n_cores: n_cores
+        part: part
       out:
       - outputs_result
 - class: CommandLineTool
@@ -63,6 +68,11 @@ $graph:
       inputBinding:
         position: 3
         prefix: --n_cores
+    part:
+      type: string
+      inputBinding:
+        position: 4
+        prefix: --part
   outputs:
     outputs_result:
       outputBinding:
@@ -76,11 +86,11 @@ s:contributor:
   s:name: lauraiduncanson, leitoldv
 s:citation: https://github.com/lauraduncanson/gedi-pa-change.git
 s:codeRepository: https://github.com/lauraduncanson/gedi-pa-change.git
-s:commitHash: 2d0ce884f6112aa8d062858ef99afe559125107a
+s:commitHash: c1c7893797b96c7b307411102836d76c867fb71f
 s:dateCreated: 2026-11-26
 s:license: https://raw.githubusercontent.com/lauraduncanson/gedi-pa-change/refs/heads/main/LICENSE
 s:softwareVersion: 1.0.0
-s:version: v2
+s:version: v3
 s:releaseNotes: None
 s:keywords: ogc, gedi, protected areas, matching
 $namespaces:
