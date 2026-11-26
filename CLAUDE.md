@@ -173,6 +173,10 @@ cells). Test whether a 2 km buffer changes the estimate:
   country with >= 10 PAs qualifying in both, edge effects are judged small and the global run
   uses **10 km by default, 2 km for units where the 10 km pool has fewer complete control cells
   than PA cells**. Otherwise keep 10 km everywhere (thin units go to the imputation rule).
+- **Outcome (2026-11-26): keep 10 km everywhere.** Ghana: no detectable difference. Cameroon:
+  2 km lowered the DiD by 3.9 Mg/ha AGBD [95% CI −8.2, −0.3] and 0.28 m RH98 (near-PA controls
+  lost less biomass, i.e. spillover), so the rule was not met. Costa Rica had no comparable controls
+  at either buffer. See results/buffer_test.md.
 
 ## PAs without a valid counterfactual (Laura, 2026-11-26; to implement in analysis/totals.py)
 
