@@ -11,12 +11,14 @@
 set -uo pipefail
 
 region=""; covariates=""; n_cores="4"; part="1/1"
+input_prefix="s3://maap-ops-workspace/shared/leitoldv/GEDI_global_change/MATCHING_points_V3"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --region) region="$2"; shift 2 ;;
     --covariates) covariates="$2"; shift 2 ;;
     --n_cores) n_cores="$2"; shift 2 ;;
     --part) part="$2"; shift 2 ;;
+    --input_prefix) input_prefix="$2"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -25,9 +27,12 @@ if [[ -z "$region" || -z "$covariates" ]]; then
   exit 2
 fi
 
-SRC="${MATCH_INPUT_PREFIX:-s3://maap-ops-workspace/shared/leitoldv/GEDI_global_change/MATCHING_points_V3}"
+# Brazil: her MATCHING_points_V3 folder (default). Other countries: the folder written by
+# matching/prep_global_inputs.py (<prefix>/<ISO3>/<ISO3>_prepped_{PAs,control}.RDS).
+SRC="${input_prefix%/}"
+[[ "$SRC" == *"/MATCHING_points_V3" ]] || SRC="$SRC/$region"
 mkdir -p output input
-echo "region=$region covariates=$covariates n_cores=$n_cores part=$part nproc=$(nproc) mem_total=$(awk '/MemTotal/{printf "%.1f GB", $2/1048576}' /proc/meminfo)"
+echo "input=$SRC region=$region covariates=$covariates n_cores=$n_cores part=$part nproc=$(nproc) mem_total=$(awk '/MemTotal/{printf "%.1f GB", $2/1048576}' /proc/meminfo)"
 
 for kind in PAs control; do
   python3 /app/s3_get.py "$SRC/${region}_prepped_${kind}.RDS" input/ || exit 3

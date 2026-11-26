@@ -18,7 +18,8 @@
 # gedi-pa-change patch (DPS): extra arguments
 #   Rscript gedi_change_step4_V3_cmd.R <iso3> <covariates> <n_cores> <in_dir> <out_dir>
 #   covariates: with_l4b (her V3 model) or no_l4b (gedi_l4b removed from the propensity
-#               model; everything else unchanged)
+#               model; everything else unchanged) or l4b_classes (gedi_l4b removed from the
+#               propensity model, plus exact matching within the factor column l4b_class)
 #   in_dir:     folder holding <iso3>_prepped_PAs.RDS and <iso3>_prepped_control.RDS
 #   out_dir:    results go to <out_dir>/MATCHING_results_V3/ and logs to <out_dir>/matching_log/
 #   part:       optional "i/n" (default 1/1): run only part i of the region's PAs, split into n
@@ -37,7 +38,9 @@ n_cores    <- as.integer(args[3])
 in_dir     <- args[4]
 out_dir    <- args[5]
 part       <- if (length(args) >= 6) args[6] else "1/1"
-if (!covariates %in% c("with_l4b", "no_l4b")) stop("covariates must be with_l4b or no_l4b")
+if (!covariates %in% c("with_l4b", "no_l4b", "l4b_classes")) stop("covariates must be with_l4b, no_l4b or l4b_classes")
+# gedi-pa-change patch: exact matching within L4B classes (used in matching_func_2025.R)
+l4b_strata <- covariates == "l4b_classes"
 part_i <- as.integer(sub("/.*", "", part)); part_n <- as.integer(sub(".*/", "", part))
 if (is.na(part_i) || is.na(part_n) || part_i < 1 || part_i > part_n) stop("part must be i/n with 1 <= i <= n")
 
@@ -85,6 +88,13 @@ d_control_local <- readRDS(file.path(in_dir, paste0(iso3, "_prepped_control.RDS"
 d_control_local <- d_control_local[complete.cases(d_control_local), ]
 
 all_PA_points <- readRDS(file.path(in_dir, paste0(iso3, "_prepped_PAs.RDS")))
+# gedi-pa-change patch: inputs converted by matching/prep_global_inputs.py are one data frame
+# with a pa_id column; her Brazil inputs are already a list named by PA id.
+if (is.data.frame(all_PA_points)) {
+  all_PA_points <- split(all_PA_points[, setdiff(names(all_PA_points), "pa_id")],
+                         as.character(all_PA_points$pa_id))
+}
+if (l4b_strata && !"l4b_class" %in% names(d_control_local)) stop("l4b_classes needs an l4b_class column")
 cat("Control cells:", nrow(d_control_local), "\n")
 cat("PAs loaded:   ", length(all_PA_points), "\n\n")
  
@@ -133,7 +143,7 @@ if (length(remaining_ids) > 0) {
     .combine  = rbind,
     .packages = c("dplyr", "tidyr", "optmatch"),
     .export   = c("propensity_filter", "match_wocat", "foreach_rbind",
-                  "f.path", "iso3", "ps_formula")
+                  "f.path", "iso3", "ps_formula", "l4b_strata")
   ) %dopar% {
  
     id_pa <- remaining_ids[i]

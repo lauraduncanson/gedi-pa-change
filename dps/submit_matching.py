@@ -21,11 +21,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--process-id", required=True)
     ap.add_argument("--queue", required=True)
-    ap.add_argument("--regions", nargs="+", required=True, choices=REGIONS)
-    ap.add_argument("--covariates", nargs="+", required=True, choices=["with_l4b", "no_l4b"])
+    ap.add_argument("--regions", nargs="+", required=True, help=f"Brazil: {' '.join(REGIONS)}; other countries: ISO3 (with --input-prefix)")
+    ap.add_argument("--covariates", nargs="+", required=True, choices=["with_l4b", "no_l4b", "l4b_classes"])
     ap.add_argument("--n-cores", default="4")
     ap.add_argument("--parts", type=int, default=1, help="jobs per region x covariate set")
     ap.add_argument("--only-part", type=int, help="submit just this part (1-based) of --parts")
+    ap.add_argument("--input-prefix", default="s3://maap-ops-workspace/shared/leitoldv/GEDI_global_change/MATCHING_points_V3",
+                    help="her Brazil inputs (default) or s3://maap-ops-workspace/lduncanson/gedi_pa_change/matching_inputs")
     ap.add_argument("--tag", default="gedi-pa-change-match-brazil")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
@@ -44,7 +46,8 @@ def main():
             w.writerow(["region", "covariates", "n_cores", "queue", "job_id", "http_status", "submitted_at", "part"])
         for region, cov, part in todo:
             r = maap.submit_job(process_id=a.process_id, queue=a.queue, tag=f"{a.tag}-{region}-{cov}-{part.replace('/', 'of')}",
-                                inputs={"region": region, "covariates": cov, "n_cores": str(a.n_cores), "part": part})
+                                inputs={"region": region, "covariates": cov, "n_cores": str(a.n_cores), "part": part,
+                                        "input_prefix": a.input_prefix})
             body = r.json() if r.status_code in (200, 201, 202) else {}
             job_id = body.get("jobID") or body.get("id") or ""
             print(f"  {region} {cov} {part}: http {r.status_code} job {job_id or r.text[:200]}")

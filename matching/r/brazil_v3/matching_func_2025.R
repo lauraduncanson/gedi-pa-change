@@ -69,6 +69,16 @@ match_wocat <- function(df, pid) {
                     } else {
                       f <- update(f, ~ . - wwfecoreg)
                     }
+                    # gedi-pa-change patch (l4b_classes only): exact matching within L4B classes.
+                    # Keep classes that have both PA and control cells (others cannot be matched
+                    # exactly), then stratify on the class like land_cover.
+                    if (isTRUE(get0("l4b_strata", ifnotfound = FALSE))) {
+                      shared <- intersect(unique(as.character(this_d$l4b_class[this_d$status])),
+                                          unique(as.character(this_d$l4b_class[!this_d$status])))
+                      this_d <- this_d[as.character(this_d$l4b_class) %in% shared, ]
+                      this_d$l4b_class <- droplevels(factor(this_d$l4b_class))
+                      if (nlevels(this_d$l4b_class) >= 2) f <- update(f, ~ . + strata(l4b_class))
+                    }
                     if (nrow(d_wocat) > 2) {
                       model <- glm(f, data=this_d)
                       dists <- match_on(model, data=this_d)  #***NEED PROPENSITY SCORE BEFORE HERE
@@ -112,6 +122,16 @@ match_wocat <- function(df, pid) {
                         f <- update(f, ~ . + strata(wwfbiom))
                       } else {
                         f <- update(f, ~ . - wwfbiom)
+                      }
+                      # gedi-pa-change patch (l4b_classes only): exact matching within L4B classes.
+                      # Keep classes that have both PA and control cells (others cannot be matched
+                      # exactly), then stratify on the class like land_cover.
+                      if (isTRUE(get0("l4b_strata", ifnotfound = FALSE))) {
+                        shared <- intersect(unique(as.character(this_d$l4b_class[this_d$status])),
+                                            unique(as.character(this_d$l4b_class[!this_d$status])))
+                        this_d <- this_d[as.character(this_d$l4b_class) %in% shared, ]
+                        this_d$l4b_class <- droplevels(factor(this_d$l4b_class))
+                        if (nlevels(this_d$l4b_class) >= 2) f <- update(f, ~ . + strata(l4b_class))
                       }
                       if (nrow(d_wocat) > 2) {
                         model <- glm(f, data=this_d)
@@ -167,7 +187,10 @@ propensity_filter <- function(pa_df, d_control_local) {
   # filter controls based on propensity scores 
   d_all <- dplyr::select(d, lat, lon, UID, status, land_cover, wwfbiom, wwfecoreg, 
                          elevation, slope, mean_temp, max_temp, min_temp, prec, 
-                         d2road, d2city, tt2city, popden, popcnt, gedi_l4b) 
+                         d2road, d2city, tt2city, popden, popcnt, gedi_l4b)
+  # gedi-pa-change patch: carry l4b_class through when present (l4b_classes runs only)
+  if ("l4b_class" %in% names(d)) d_all$l4b_class <- d$l4b_class
+
   
   d_all$status <- ifelse(d_all$status==TRUE,1,0)
   
