@@ -76,7 +76,9 @@ def submit(a):
     done = submitted()
     ok = done[done.job_id.notna() & (done.job_id != "")]
     have = set(zip(ok.unit, ok.part))
-    todo = [(u, f"{i}/{n}") for u, n in zip(p.unit, p.parts) for i in range(1, int(n) + 1) if (u, f"{i}/{n}") not in have]
+    have_units = set(ok.unit)  # never resubmit a unit under a different part split (would duplicate PAs)
+    todo = [(u, f"{i}/{n}") for u, n in zip(p.unit, p.parts) for i in range(1, int(n) + 1)
+            if (u, f"{i}/{n}") not in have and u not in have_units]
     print(f"submitting {len(todo)} job(s) ({len({u for u, _ in todo})} units)")
     if a.dry_run:
         print(todo[:20]); return
