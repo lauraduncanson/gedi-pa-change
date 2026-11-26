@@ -13,8 +13,9 @@ $graph:
       label: Region
       type: string
     covariates:
-      doc: with_l4b (propensity model as in her V3 run) or no_l4b (gedi_l4b removed,
-        all else unchanged)
+      doc: with_l4b (propensity model as in her V3 run), no_l4b (gedi_l4b removed,
+        all else unchanged) or l4b_classes (gedi_l4b removed; exact matching within
+        50 Mg/ha L4B classes)
       label: Covariate set
       type: string
     n_cores:
@@ -25,6 +26,11 @@ $graph:
       doc: Part i/n of the region's PAs to run (1/1 = all). Splitting does not change
         any match.
       label: Part
+      type: string
+    input_prefix:
+      doc: s3:// folder with the step 1-3 inputs; her Brazil MATCHING_points_V3 folder,
+        or the matching_inputs folder from matching/prep_global_inputs.py (then <prefix>/<region>/)
+      label: Input folder
       type: string
   outputs:
     out:
@@ -38,6 +44,7 @@ $graph:
         covariates: covariates
         n_cores: n_cores
         part: part
+        input_prefix: input_prefix
       out:
       - outputs_result
 - class: CommandLineTool
@@ -73,6 +80,11 @@ $graph:
       inputBinding:
         position: 4
         prefix: --part
+    input_prefix:
+      type: string
+      inputBinding:
+        position: 5
+        prefix: --input_prefix
   outputs:
     outputs_result:
       outputBinding:
@@ -86,11 +98,11 @@ s:contributor:
   s:name: lauraiduncanson, leitoldv
 s:citation: https://github.com/lauraduncanson/gedi-pa-change.git
 s:codeRepository: https://github.com/lauraduncanson/gedi-pa-change.git
-s:commitHash: c1c7893797b96c7b307411102836d76c867fb71f
+s:commitHash: 11138adf792a1b6565f27721466b83fb79575c9b
 s:dateCreated: 2026-11-26
 s:license: https://raw.githubusercontent.com/lauraduncanson/gedi-pa-change/refs/heads/main/LICENSE
 s:softwareVersion: 1.0.0
-s:version: v3
+s:version: v4
 s:releaseNotes: None
 s:keywords: ogc, gedi, protected areas, matching
 $namespaces:
