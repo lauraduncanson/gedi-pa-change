@@ -111,7 +111,10 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
   Ubuntu/rocker image failed on DPS with an OpenSSL `[CRYPTO] unknown error`). The GitHub Action
   `match-brazil.yml` builds the image (`ghcr.io/lauraduncanson/gedi-pa-change-match-brazil:main`,
   public) and commits the CWL; register from the Hub with `maap.deploy_algorithm(...)`.
-- Use **process 248 (version v3)**. Inputs: `region` (BAe BAw BCa BCe BMa BPp BPt),
+- Use **process 251 (version v6)** (v4 added the L4B-class arm and `input_prefix`; v5 dropped unused
+  biome/ecoregion factor levels; v6 made the no-ecoregion fallback return the same columns as the
+  main branch, which made 39 of 554 global v5 jobs fail and could drop chunks silently). Global
+  v5 outputs are superseded; rerun everything on v6. Inputs: `region` (BAe BAw BCa BCe BMa BPp BPt),
   `covariates` (`with_l4b` = her V3 model, `no_l4b` = `gedi_l4b` dropped, nothing else changed),
   `n_cores` (= the worker's vCPUs, e.g. 32 on `maap-dps-worker-32vcpu-64gb`), `part` (`i/n`).
   Submit with `dps/submit_matching.py` (`--parts N` splits a region; ids in `dps/match_jobs.csv`).
