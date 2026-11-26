@@ -124,6 +124,19 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
 - Data versions: her matching inputs and `brazil_tiles` shots are most likely GEDI V002 (same
   shots sit ~2 m from gedi-tiled-v3); `gedi_l4b` is probably L4B V2.1. Our outcomes are V003.
 
+## Matching design decision (Laura, 2026-11-26)
+
+- **Primary design: GEDI L4B as a continuous covariate in the propensity model** (Veronika's V3
+  model; `covariates = with_l4b`). Basis: in Brazil and Cameroon, dropping L4B doubled-to-sextupled
+  the T1 PA-control AGBD imbalance and lowered the DiD; 50 Mg/ha L4B classes reproduced the
+  continuous DiD (Cameroon +3.1 vs +3.0 Mg/ha), so regression to the mean from fine L4B matching
+  is not driving the effect, while baseline differences are. See results/BRA_first_look.md
+  (section 9) and results/CMR_l4b_check.md.
+- `no_l4b` and `l4b_classes` are sensitivity checks only. The RTM check (`rtm_check.py`) is an
+  upper bound, not a design criterion (its gap is negative even without L4B).
+- Report T1 PA-minus-control balance (AGBD, RH98) with every DiD. Cells without L4B drop out of
+  matching; that is acceptable (they mostly lack GEDI data too).
+
 ## L4B matching check in Cameroon (decided 2026-11-26, before running)
 
 Brazil's AGBD DiD fell from +4.6 to +2.0 Mg/ha when L4B was dropped from the matching, but
