@@ -7,7 +7,7 @@ into matching units <ISO3>_<biome>. In each unit:
   treatment = cells fully inside a kept PA (centre and 4 corners inside the polygon); kept PAs as
               in the global PA change analysis (Designated/Inscribed/Established, no UNESCO-MAB).
               A cell inside several kept PAs is a treatment cell of each.
-  control   = cells whose centre is more than 10 km from every WDPA polygon (any status).
+  control   = cells whose centre is more than --buffer-km (default 10) from every WDPA polygon (any status).
 Covariates (2020 set) are read at the cell centre from the global rasters; land cover (lc2020),
 biome and ecoregion are written as factors with the same levels in both tables so that her
 step 4 stratifies on them. Output per unit, in the format of matching/r/brazil_v3 (v4):
@@ -38,7 +38,7 @@ from rasterio.windows import Window
 RES, X0, Y0, NCOLS = 1000.89502334956, -17367530.4451615, 7314540.8306386, 34704
 HALF = RES / 2 * 0.999  # corners just inside the cell edge
 KEEP_STATUS = ("Designated", "Inscribed", "Established")
-BUFFER_M = 10_000
+TILE_M = 500_000  # tile size for processing (EASE2 metres)
 COV = {  # column name in her step 4 -> raster file (INPUT_covariates_2020)
     "d2road": "d2roads", "d2city": "dcities", "elevation": "dem", "slope": "slope",
     "popcnt": "pop_cnt_2020", "popden": "pop_den_2020", "tt2city": "tt2cities_2015",
@@ -108,30 +108,47 @@ def country(iso3, a, ids_all, xs_all, ys_all, s3):
     if len(ids) == 0:
         print(f"{iso3}: no GEDI cells"); return []
 
-    wdpa = pyogrio.read_dataframe(os.path.join(a.inputs, "wdpa2025_ease2.gpkg"),
-                                  bbox=(xmin - BUFFER_M, ymin - BUFFER_M, xmax + BUFFER_M, ymax + BUFFER_M),
-                                  columns=["WDPAID", "STATUS", "DESIG_ENG", "PA_DEF"])
-    wdpa = wdpa[~wdpa.geometry.isna()].reset_index(drop=True)
-    g_all = shapely.make_valid(wdpa.geometry.values)
-    pts = shapely.points(xs, ys)
-    # controls: centre more than 10 km from every WDPA polygon
+    # Process the country in ~500 km tiles: each tile reads only the WDPA polygons within the
+    # buffer of it, so memory is bounded by a tile, not a country (the USA in one block exceeded
+    # the Hub's 16 GB), and countries crossing the antimeridian only touch tiles with cells.
+    # A cell's status depends only on polygons within the buffer of it, so results are identical.
+    buf = a.buffer_km * 1000.0
+    tx = np.floor((xs - X0) / TILE_M).astype(np.int64)
+    ty = np.floor((Y0 - ys) / TILE_M).astype(np.int64)
+    tile_key = tx * 100000 + ty
     near = np.zeros(len(ids), bool)
-    if len(wdpa):
-        pi, _ = shapely.STRtree(g_all).query(pts, predicate="dwithin", distance=BUFFER_M)
-        near[np.unique(pi)] = True
-    # treatment: centre and four corners inside a kept PA
-    kept = (wdpa.STATUS.isin(KEEP_STATUS) & (wdpa.PA_DEF.astype(str) == "1")
-            & ~wdpa.DESIG_ENG.eq("UNESCO-MAB Biosphere Reserve")).values
-    tr_cell, tr_pa = np.zeros(0, np.int64), np.zeros(0, np.int64)
-    if kept.any():
-        gk = g_all[kept]; idk = wdpa.WDPAID.values[kept].astype(np.int64)
-        pi, gi = shapely.STRtree(gk).query(pts, predicate="within")
-        full = np.ones(len(pi), bool)
-        for dx, dy in ((-HALF, -HALF), (-HALF, HALF), (HALF, -HALF), (HALF, HALF)):
-            full &= shapely.contains_xy(gk[gi], xs[pi] + dx, ys[pi] + dy)
-        tr_cell, tr_pa = pi[full], idk[gi[full]]
-        pair = pd.DataFrame({"i": tr_cell, "pa": tr_pa}).drop_duplicates()  # parcels of one WDPAID
-        tr_cell, tr_pa = pair.i.values, pair.pa.values
+    tr_cells, tr_pas, n_poly = [], [], 0
+    gpkg = os.path.join(a.inputs, "wdpa2025_ease2.gpkg")
+    for key in np.unique(tile_key):
+        idx = np.where(tile_key == key)[0]
+        x_lo, x_hi = xs[idx].min() - HALF, xs[idx].max() + HALF
+        y_lo, y_hi = ys[idx].min() - HALF, ys[idx].max() + HALF
+        wdpa = pyogrio.read_dataframe(gpkg, bbox=(x_lo - buf, y_lo - buf, x_hi + buf, y_hi + buf),
+                                      columns=["WDPAID", "STATUS", "DESIG_ENG", "PA_DEF"])
+        wdpa = wdpa[~wdpa.geometry.isna()].reset_index(drop=True)
+        if wdpa.empty:
+            continue
+        n_poly += len(wdpa)
+        g_all = shapely.make_valid(wdpa.geometry.values)
+        pts = shapely.points(xs[idx], ys[idx])
+        # controls: centre more than buffer_km from every WDPA polygon (any status)
+        pi, _ = shapely.STRtree(g_all).query(pts, predicate="dwithin", distance=buf)
+        near[idx[np.unique(pi)]] = True
+        # treatment: centre and four corners inside a kept PA
+        kept = (wdpa.STATUS.isin(KEEP_STATUS) & (wdpa.PA_DEF.astype(str) == "1")
+                & ~wdpa.DESIG_ENG.eq("UNESCO-MAB Biosphere Reserve")).values
+        if kept.any():
+            gk = g_all[kept]; idk = wdpa.WDPAID.values[kept].astype(np.int64)
+            pi, gi = shapely.STRtree(gk).query(pts, predicate="within")
+            full = np.ones(len(pi), bool)
+            for dx, dy in ((-HALF, -HALF), (-HALF, HALF), (HALF, -HALF), (HALF, HALF)):
+                full &= shapely.contains_xy(gk[gi], xs[idx[pi]] + dx, ys[idx[pi]] + dy)
+            tr_cells.append(idx[pi[full]]); tr_pas.append(idk[gi[full]])
+        del wdpa, g_all, pts
+    tr_cell = np.concatenate(tr_cells) if tr_cells else np.zeros(0, np.int64)
+    tr_pa = np.concatenate(tr_pas) if tr_pas else np.zeros(0, np.int64)
+    pair = pd.DataFrame({"i": tr_cell, "pa": tr_pa}).drop_duplicates()  # parcels of one WDPAID
+    tr_cell, tr_pa = pair.i.values, pair.pa.values
 
     lon, lat = TO_LONLAT.transform(xs, ys)
     cov = {k: sample(os.path.join(a.inputs, "cov", f"{v}.tif"), lon, lat) for k, v in COV.items()}
@@ -184,7 +201,7 @@ def country(iso3, a, ids_all, xs_all, ys_all, s3):
                          n_controls=len(ctl), pa_cells_complete=int(pas.drop(columns="cell_id").notna().all(axis=1).sum()),
                          controls_complete=int(ctl.drop(columns="cell_id").notna().all(axis=1).sum()), written=True))
     man = pd.DataFrame(rows)
-    print(f"{iso3}: {len(ids):,} GEDI cells, {len(wdpa):,} WDPA polygons, {len(np.unique(tr_cell)):,} treatment cells "
+    print(f"{iso3}: {len(ids):,} GEDI cells, {n_poly:,} WDPA polygons read, {len(np.unique(tr_cell)):,} treatment cells "
           f"in {len(np.unique(tr_pa)):,} PAs, {int((~near).sum()):,} control cells, {int(man.written.sum()) if len(man) else 0} units "
           f"({time.time() - t0:.0f} s)", flush=True)
     return rows
@@ -197,6 +214,7 @@ def main():
     ap.add_argument("--cells", required=True, help="combined cell table")
     ap.add_argument("--out", required=True, help="s3:// prefix or local folder for the unit inputs")
     ap.add_argument("--manifest", default="output/matching_units_manifest.csv")
+    ap.add_argument("--buffer-km", type=float, default=10.0, help="controls: centre further than this from any WDPA polygon")
     a = ap.parse_args()
     isos = a.iso3
     if isos == ["ALL"]:
