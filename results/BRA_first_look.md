@@ -21,8 +21,20 @@ Nothing under `shared-buckets/leitoldv/` was modified.
   baseline. By the check's own reading, up to about 3 Mg/ha of the +4.6 could be regression to
   the mean from matching on GEDI L4B. Without the four sparse bins at 325 Mg/ha and above, the
   gap is −2.07.
-- **The planned sensitivity run is now needed:** re-match without L4B
-  (`matching/README.md`, RTM check 2).
+- **Sensitivity run done: re-matched without L4B** (section 9). Her matching, re-run on DPS
+  with `gedi_l4b` removed and nothing else changed, gives:
+
+  | AGBD (Mg/ha) | With L4B | Without L4B |
+  |---|---|---|
+  | DiD | **+4.61** | **+2.00** |
+  | Median DiD | +2.70 | +0.61 |
+  | T1 control vs PA | 7.4 lower | **15.4 lower** |
+
+  - The drop of 2.6 Mg/ha is about the size the RTM check predicted.
+  - But without L4B, controls start further below the PAs, so the second estimate has its own
+    bias risk.
+  - **The national AGBD effect is somewhere around +2 to +4.6 Mg/ha and is sensitive to how
+    baseline biomass is matched.** Neither run gives a clean answer yet (section 9).
 
 Abbreviations: `G` = `/home/jovyan/shared-buckets/leitoldv/GEDI_global_change/`,
 `M` = `G/gedi_change_brazil/repo/matching/`. Notebook cell numbers are 0-based.
@@ -457,11 +469,7 @@ weighted by cells).
 
 ## 8. Next steps (suggested)
 
-1. **Sensitivity run without L4B** (`matching/README.md`, RTM check 2):
-   - Re-match Brazil with `gedi_l4b` removed from the propensity model, everything else unchanged.
-   - Run `did_country.py` on both sets of matches. If the DiD falls by about 2-3 Mg/ha, the
-     current estimate is mostly RTM.
-   - This needs the matching on DPS and Veronika's agreement to use her code.
+1. ~~Sensitivity run without L4B~~: **done, see section 9.**
 2. **Optional:** match on L4B in 50 Mg/ha classes instead of as a continuous covariate
    (`matching/README.md`).
 3. **T1 balance:** report T1 PA vs control for every metric with each result, and consider
@@ -470,3 +478,110 @@ weighted by cells).
    PAs (or over matched groups within PAs) is needed before any significance claims.
 5. **Fix the earlier matching issues before running other countries:** Gaussian vs logistic
    propensity model, and biome/ecoregion strata that never apply (section 4).
+
+## 9. Re-match without L4B (sensitivity run, 2026-11-26)
+
+**What was run**
+- Veronika's Step 4 was copied verbatim into `matching/r/brazil_v3/` (provenance in `SOURCE.md`)
+  and run on DPS as `gedi-pa-change-match-brazil`.
+- Two arms, same container, same inputs (`MATCHING_points_V3/<region>_prepped_*.RDS`), all 7
+  biome regions:
+  - `with_l4b`: her V3 propensity model.
+  - `no_l4b`: the same model with `gedi_l4b` removed. Nothing else changed, including her
+    Gaussian glm and the strata that never apply (section 4).
+- Process 247 (v2) for the main run; v3 (process 248) for the verification runs (below).
+- Outputs: `results/rematch_with_l4b/` and `results/rematch_no_l4b/` (DiD and RTM outputs).
+  The matches themselves are in
+  `s3://maap-ops-workspace/lduncanson/dps_output/gedi-pa-change-match-brazil_14/`.
+
+**Jobs**
+- 20 matching jobs submitted: 19 succeeded, 1 failed.
+- The failure was the first image, an Ubuntu/rocker build, failing an SSL handshake on DPS. It
+  was rebuilt on conda-forge R.
+- Run times on `maap-dps-worker-32vcpu-64gb`, 8 PA workers (v2):
+
+  | Region | Run time |
+  |---|---|
+  | BCa | 17-19 min |
+  | BAe | 29-32 min |
+  | BAw | 39-51 min |
+  | BCe | 29-43 min |
+  | BMa | 45-48 min |
+
+- Queue waits ranged from 0 to 52 min.
+- v3 (single land-cover loop, 32 PA workers, `--parts 2`) ran BCe `no_l4b` in 14-15 min instead
+  of 29.
+
+**The re-run reproduces her matches**
+- `with_l4b` reproduces her `MATCHING_results_V3`: **740,847 of 740,868 rows identical**
+  (99.997%) across all 7 regions, with the same propensity scores.
+- The 21 exceptions are swapped controls in one PA (WDPAID 478429): 539 of its 560 controls are
+  the same, and the swapped ones have near-identical propensity scores. That's a near-tie
+  resolved differently, most likely from slightly different package or BLAS versions.
+- v3 runs (whole and split into parts) were checked identical to her files for BPp and BPt, and
+  to the v2 run for BCe `no_l4b` (101,206 of 101,206 rows).
+
+**DiD, same rules as section 5** (PAs with at least 10 cells in all four groups; PAs weighted by
+PA cells):
+- With L4B: 753 of 1,144 matched PAs qualify. Without L4B: 749 of 1,135.
+- The with-L4B AGBD DiD (+4.61) reproduces section 5.
+
+| Metric | T1 PA / control, with L4B | T1 PA / control, without L4B | **DiD with L4B** | **DiD without L4B** | Median DiD with / without |
+|---|---|---|---|---|---|
+| RH98 (m) | 23.04 / 22.18 | 23.14 / 21.65 | **0.41** | **0.27** | 0.33 / 0.16 |
+| RH50 (m) | 12.14 / 11.59 | 12.20 / 11.23 | **0.25** | **0.17** | 0.13 / 0.03 |
+| PAI | 3.764 / 3.588 | 3.780 / 3.516 | **0.065** | **0.047** | 0.027 / 0.012 |
+| FHD | 2.793 / 2.745 | 2.798 / 2.725 | **0.022** | **0.021** | 0.024 / 0.017 |
+| Cover | 0.669 / 0.642 | 0.671 / 0.634 | **0.009** | **0.009** | 0.007 / 0.005 |
+| AGBD (Mg/ha) | 154.24 / 146.82 | 155.11 / 139.76 | **4.61** | **2.00** | 2.70 / 0.61 |
+
+AGBD changes, PA / control:
+- With L4B: −12.77 / −17.38 Mg/ha.
+- Without L4B: −12.76 / −14.76 Mg/ha.
+
+**RTM check on both arms** (undisturbed cells; T2 − L4B, control minus protected, at the same L4B
+baseline):
+
+| Arm | All 17 bins | Bins below 325 Mg/ha |
+|---|---|---|
+| With L4B | −3.20 Mg/ha | −2.06 |
+| Without L4B | −2.46 Mg/ha | −1.49 |
+
+**Reading**
+1. **Dropping L4B from the matching cuts the AGBD DiD from +4.6 to +2.0 Mg/ha** (median +2.7 to
+   +0.6). RH98 falls from +0.41 to +0.27 m. PAI, RH50 and cover fall less; FHD hardly moves. The
+   PA change is the same in both arms (−12.8 Mg/ha); only the controls differ.
+2. **The drop (2.6 Mg/ha) is about the size the RTM check predicted** (2-3 Mg/ha). That's
+   consistent with part of the with-L4B effect being regression to the mean from matching on a
+   GEDI-derived baseline.
+3. **But the no-L4B controls are worse matched at T1.** They start 15.4 Mg/ha below the PAs,
+   against 7.4 with L4B. Lower-biomass controls can change differently for real reasons (more
+   accessible, more degradation), which would bias that DiD too. So the no-L4B estimate isn't
+   clean either.
+4. **The RTM gap doesn't go away without L4B** (−2.5 vs −3.2). At the same baseline, it also
+   includes any real difference in how protected and control cells change. So it is an upper
+   bound on RTM, not a measure of it, as its docstring says.
+5. **Bottom line:** the Brazil AGBD protection effect is positive in both runs but its size
+   (about +2 to +4.6 Mg/ha nationally) depends on how baseline biomass enters the matching.
+   Don't report a single number yet.
+
+**What would settle it** (to decide before looking at the result, per CLAUDE.md):
+- **L4B in broad classes:** exact matching within 50 Mg/ha classes instead of as a continuous
+  covariate (`matching/README.md`, optional third check). This controls baseline biomass
+  without matching finely on its error.
+- **Balance-restricted DiD:** keep only PAs whose matched controls are within a set T1 tolerance
+  of the PA (e.g. |T1 PA − T1 control| < 10 Mg/ha) in both arms, and compare the DiD on that
+  common set.
+- **Both need deciding before running.** Running more matching variants and keeping the one we
+  like would be the forking-paths problem CLAUDE.md warns against.
+
+## 10. GEDI data versions
+
+| Input | GEDI version | Evidence |
+|---|---|---|
+| Our outcomes (`gedi-tiled-v3` cell table) | **V003** | `root_file_l2a/l2b/l4a` = `GEDI02_A_…_V003.h5` etc., in T1 and T2 |
+| Her Step 1-3 eligibility and Step 5/6 shots (`ameliah/gedi-test/brazil_tiles`) | **Most likely V002** | No version tag stored. The same 20,000 shot numbers sit a median 2 m (90th percentile 6 m) from their V003 positions; RH98 is identical for 59% of them. Her bad-granule list is `excluded_granules_r002_…` |
+| `gedi_l4b` matching covariate (`INPUT_covariates_2020/gedi_l4b.tif`) | Probably L4B V2.1 | Likely made from `GEDI04_B_MW019MW223_02_002_02_…` in her folder; not confirmed |
+
+"V3" in her file names (`MATCHING_points_V3`, `step4_V3`) is her pipeline iteration, not the
+GEDI version. "v2"/"v3" of `gedi-pa-change-match-brazil` are our container versions.
