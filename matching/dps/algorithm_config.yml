@@ -1,0 +1,32 @@
+algorithm_description: Veronika Leitold's Brazil V3 propensity matching (step 4) for one Brazil biome region, with GEDI L4B in the propensity model (with_l4b, her V3 setting) or without it (no_l4b). Reads her MATCHING_points_V3 inputs; writes MATCHING_results_V3/ to the job output.
+algorithm_name: gedi-pa-change-match-brazil
+algorithm_version: main
+keywords: ogc, gedi, protected areas, matching
+code_repository: https://github.com/lauraduncanson/gedi-pa-change.git
+citation: https://github.com/lauraduncanson/gedi-pa-change.git
+author: lauraiduncanson
+contributor: lauraiduncanson, leitoldv
+license: https://raw.githubusercontent.com/lauraduncanson/gedi-pa-change/refs/heads/main/LICENSE
+release_notes: None
+run_command: run_matching.sh
+ram_min: 16384 # mebibytes
+cores_min: 4
+outdir_max: 8192 # mebibytes
+
+inputs:
+  - name: region
+    doc: Brazil biome region code (BAe, BAw, BCa, BCe, BMa, BPp, BPt)
+    label: Region
+    type: string
+  - name: covariates
+    doc: with_l4b (propensity model as in her V3 run) or no_l4b (gedi_l4b removed, all else unchanged)
+    label: Covariate set
+    type: string
+  - name: n_cores
+    doc: Parallel workers over PAs (each also starts 4 inner workers), e.g. 4 or 8
+    label: Number of cores
+    type: string
+
+outputs:
+  - name: out
+    type: Directory
