@@ -98,11 +98,11 @@ s:contributor:
   s:name: lauraiduncanson, leitoldv
 s:citation: https://github.com/lauraduncanson/gedi-pa-change.git
 s:codeRepository: https://github.com/lauraduncanson/gedi-pa-change.git
-s:commitHash: 06f026c061ef4739b9cb14277a13997d3763bfa2
+s:commitHash: 49a5a49fef01b519a65a34b8ee77d07c77653d4e
 s:dateCreated: 2026-11-26
 s:license: https://raw.githubusercontent.com/lauraduncanson/gedi-pa-change/refs/heads/main/LICENSE
 s:softwareVersion: 1.0.0
-s:version: v5
+s:version: v6
 s:releaseNotes: None
 s:keywords: ogc, gedi, protected areas, matching
 $namespaces:
