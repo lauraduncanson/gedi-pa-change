@@ -120,6 +120,13 @@ match_wocat <- function(df, pid) {
                       this_d$land_cover <- droplevels(this_d$land_cover)
                       #this_d$wwfbiom <- droplevels(this_d$wwfbiom)
                       if (is.factor(this_d$wwfbiom)) this_d$wwfbiom <- droplevels(this_d$wwfbiom)  # gedi-pa-change patch (see above)
+                      # gedi-pa-change patch: the main branch adds propensity_scoreA (bind_cols above) but
+                      # this fallback did not, so results from the two branches had different columns.
+                      # rbind then failed ("numbers of columns of arguments do not match"): across PAs the
+                      # whole job failed, and within a PA tryCatch silently dropped the rest of the chunk.
+                      # Compute it the same way here (glm on the same formula, fitted values).
+                      ps_A_fb <- glm(ps_formula, data = this_d)
+                      this_d$propensity_scoreA <- predict(ps_A_fb, newdata = this_d)
                       f <- ps_formula
                       if (nlevels(this_d$land_cover) >= 2) {
                         f <- update(f, ~ . + strata(land_cover))

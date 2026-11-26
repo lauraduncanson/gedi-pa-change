@@ -25,7 +25,7 @@ import time
 
 import pandas as pd
 
-PROCESS_ID = "250"
+PROCESS_ID = "PENDING_v6"
 QUEUE = "maap-dps-worker-32vcpu-64gb"
 PREFIX = "s3://maap-ops-workspace/lduncanson/gedi_pa_change/matching_inputs_global"
 PART_CELLS = 40_000
