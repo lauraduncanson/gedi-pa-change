@@ -43,6 +43,13 @@ match_wocat <- function(df, pid) {
                     this_d$land_cover <- droplevels(this_d$land_cover)
                     #this_d$wwfbiom <- droplevels(this_d$wwfbiom)
                     #this_d$wwfecoreg <- droplevels(this_d$wwfecoreg)
+                    # gedi-pa-change patch: when biome/ecoregion are factors (global inputs), drop
+                    # unused levels as the commented lines above intended; otherwise nlevels() counts
+                    # absent levels, strata() is added for a one-level factor and glm fails
+                    # ("contrasts can be applied only to factors with 2 or more levels"). Numeric
+                    # columns (her Brazil inputs) are left unchanged.
+                    if (is.factor(this_d$wwfbiom)) this_d$wwfbiom <- droplevels(this_d$wwfbiom)
+                    if (is.factor(this_d$wwfecoreg)) this_d$wwfecoreg <- droplevels(this_d$wwfecoreg)
                     # table(this_d$status)
                     dat <- dplyr::select(this_d, lat, lon, UID, status, land_cover, wwfbiom, wwfecoreg, 
                                          elevation, slope, mean_temp, max_temp, min_temp, prec,
@@ -112,6 +119,7 @@ match_wocat <- function(df, pid) {
                       
                       this_d$land_cover <- droplevels(this_d$land_cover)
                       #this_d$wwfbiom <- droplevels(this_d$wwfbiom)
+                      if (is.factor(this_d$wwfbiom)) this_d$wwfbiom <- droplevels(this_d$wwfbiom)  # gedi-pa-change patch (see above)
                       f <- ps_formula
                       if (nlevels(this_d$land_cover) >= 2) {
                         f <- update(f, ~ . + strata(land_cover))
