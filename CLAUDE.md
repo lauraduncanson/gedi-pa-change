@@ -137,6 +137,20 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
 - Report T1 PA-minus-control balance (AGBD, RH98) with every DiD. Cells without L4B drop out of
   matching; that is acceptable (they mostly lack GEDI data too).
 
+## PAs without a valid counterfactual (Laura, 2026-11-26; to implement in analysis/totals.py)
+
+No cross-border matching (national trends differ too much to assume comparable controls).
+Instead, impute the PA's DiD from comparable measured PAs:
+- **No valid counterfactual** = the PA has no matches, or fails the 10-cell rule for the metric,
+  or its T1 AGBD balance is poor: |standardised mean difference| > 0.25 between its PA and
+  matched control cells (SMD = (mean PA - mean control) / pooled SD of T1 cell means).
+- **Strata**, in order, each needing >= 5 measured PAs: WWF/Olson biome x country, then GEDI
+  region (continent) x biome, then biome. A PA's biome is the majority biome of its cells.
+- **Imputed DiD** = PA-cell-weighted mean DiD of the measured PAs in the stratum; its uncertainty
+  is their spread. The PA's own T1/T2 change inside the PA is still measured, not imputed.
+- **Always report** measured-only and measured + imputed totals side by side, with the share of
+  PAs and of PA area that is imputed, by country and globally.
+
 ## L4B matching check in Cameroon (decided 2026-11-26, before running)
 
 Brazil's AGBD DiD fell from +4.6 to +2.0 Mg/ha when L4B was dropped from the matching, but
