@@ -22,6 +22,8 @@ import os
 import duckdb
 
 METRICS = ["rh98", "rh50", "pai", "fhd", "cover", "agbd"]
+# drift-v1 cell files also carry these (ground-drift corrected); pooled when present
+CORR_METRICS = ["rh98_c", "rh50_c", "agbd_c", "agbd_c_lo", "agbd_c_hi"]
 
 
 def pooled(m):
@@ -52,6 +54,8 @@ def main():
     print(f"{nd:,} cell x epoch keys appear in more than one tile ({nr:,} rows)")
 
     cols = [r[0] for r in con.sql("DESCRIBE c").fetchall()]
+    metrics = METRICS + [m for m in CORR_METRICS if f"{m}_mean" in cols]
+    print("metrics pooled:", " ".join(metrics))
     w = "sum(n_shots * {0}) / sum(n_shots) AS {0}"
     merged = ", ".join(
         ["cell_id", "epoch",
@@ -61,7 +65,7 @@ def main():
          "arg_max(hemisphere, n_shots) AS hemisphere",
          w.format("lon"), w.format("lat"), w.format("frac_night"),
          "max(n_beams) AS n_beams", w.format("sensitivity_mean")]
-        + [pooled(m) for m in METRICS]
+        + [pooled(m) for m in metrics]
         + ["count(*) AS n_tiles"])
     order = ", ".join(cols + ["n_tiles"])
     con.sql(f"""
@@ -75,7 +79,7 @@ def main():
       ) TO '{a.out}' (FORMAT parquet)""")
 
     # checks: one row per key, and every count preserved
-    sums = ", ".join(["sum(n_shots)"] + [f"sum({m}_n)" for m in METRICS])
+    sums = ", ".join(["sum(n_shots)"] + [f"sum({m}_n)" for m in metrics])
     before = con.sql(f"SELECT count(*), {sums} FROM c").fetchone()
     after = con.sql(f"SELECT count(*), {sums} FROM '{a.out}'").fetchone()
     keys = con.sql(f"SELECT count(*) FROM (SELECT DISTINCT cell_id, epoch FROM '{a.out}')").fetchone()[0]

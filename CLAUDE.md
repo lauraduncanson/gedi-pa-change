@@ -135,7 +135,11 @@ Do not change the drift table, the L4A model files or the overrides without aski
   `--done-dir s3://maap-ops-workspace/lduncanson/dps_output/gedi-pa-change-extract-tile_14/drift-v1/`
   (the default prefix also matches the `main` run and would count every tile as done). The `main`
   job log is `dps/jobs_main.csv`; `dps/jobs.csv` holds drift-v1 jobs. Test tiles S03_W060 and
-  S13_E028 passed (L4A mismatch 0.0, no mismatch strata, `agbd_c_mean` in cells).
+  S13_E028 passed (L4A mismatch 0.0, no mismatch strata, `agbd_c_mean` in cells). 100 random
+  tiles passed the same checks, with shot counts identical to `main`. Full run finished
+  2026-11-27: all 12,080 tiles done (5 needed one retry after the DPS "Unable to locate
+  credentials" error). Tables: `output/gedi_pa_change_cells_drift_v1.parquet` and
+  `output/gedi_pa_change_cells_drift_v1_combined.parquet` (the `main` tables are kept unchanged).
 - Confirmed by the test tiles: DPS workers can read gedi-tiled-v3; queue `maap-dps-worker-16gb`
   works (process id 237; ~15 s per tile, ~200 tiles/min); output location as above.
 
