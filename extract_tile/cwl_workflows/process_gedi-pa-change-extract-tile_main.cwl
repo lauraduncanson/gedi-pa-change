@@ -53,11 +53,11 @@ s:contributor:
   s:name: lauraiduncanson
 s:citation: https://github.com/lauraiduncanson/gedi-pa-change.git
 s:codeRepository: https://github.com/EDIT_ME/gedi-pa-change.git
-s:commitHash: a15e2407c580aea3008aef4d85c51229f601168a
-s:dateCreated: 2026-11-23
+s:commitHash: 088f4d1231ecc86b8088c4b9e615438969686718
+s:dateCreated: 2026-11-27
 s:license: https://raw.githubusercontent.com/EDIT_ME/gedi-pa-change/refs/heads/main/LICENSE
 s:softwareVersion: 1.0.0
-s:version: main
+s:version: drift-v1
 s:releaseNotes: None
 s:keywords: ogc, gedi, protected areas
 $namespaces:
