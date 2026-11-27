@@ -269,6 +269,11 @@ Implemented in `analysis/totals.py`.
 - **Outputs:** area-weighted mean DiD per metric (kept for figures), and for AGBD the total
   DiD x area in Tg; by country, biome, region and globally; measured-only and measured + imputed;
   95% bootstrap over measured PAs (imputed values recomputed in each resample).
+- **Figure inputs (Laura, 2026-11-27):** `analysis/figure_inputs.py` turns the `totals.py` output into
+  the files `figures/fig_setup.R` reads (`/home/jovyan/GEDI/results/figure_inputs`). It adds PA biomass
+  stock (T1) and absolute stock change over **total PA area** (not forest area: the AGBD means use all
+  GEDI shots), with per-PA T1/T2 means over all PA cells (>= 10 cells per epoch, else imputed with the
+  same stratum hierarchy). "qualifies" in the figure files = measured (10-cell rule + balance).
 
 ## L4B matching check in Cameroon (decided 2026-11-26, before running)
 
