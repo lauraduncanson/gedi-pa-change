@@ -9,6 +9,7 @@ collect matches and run the per-country DiD.
   python dps/global_matching.py status
   python dps/global_matching.py collect              # download per-PA matches of successful jobs
   python dps/global_matching.py did                  # did_country.py per country -> results/global_did/<ISO3>/
+  python dps/global_matching.py did --cells output/gedi_pa_change_cells_drift_v1_combined.parquet --out results/global_did_drift_v1
 
 Jobs: process 250 (v5), continuous L4B, 32 cores on maap-dps-worker-32vcpu-64gb; units are split into parts
 (same matches) by PA cells (PART_CELLS) and by PAs x controls (PART_WORK), whichever needs more.
@@ -153,10 +154,10 @@ def did(a):
     rows = []
     for iso_dir in sorted(glob.glob(os.path.join(WORK, "???"))):
         iso = os.path.basename(iso_dir)
-        out = os.path.join("results", "global_did", iso)
+        out = os.path.join(a.out, iso)
         os.makedirs(out, exist_ok=True)
         r = subprocess.run([sys.executable, "analysis/did_country.py", "--iso3", iso, "--matches", iso_dir,
-                            "--cells", "output/gedi_pa_change_cells_combined.parquet", "--out", out],
+                            "--cells", a.cells, "--out", out],
                            capture_output=True, text=True)
         if r.returncode != 0:
             print(f"{iso}: did_country FAILED: {r.stderr[-300:]}"); continue
@@ -164,8 +165,8 @@ def did(a):
         print(f"{iso}: done", flush=True)
     if rows:
         allc = pd.concat(rows, ignore_index=True)
-        allc.to_csv(os.path.join("results", "global_did", "summary_by_country.csv"), index=False)
-        print(f"wrote results/global_did/summary_by_country.csv ({allc.iso3.nunique()} countries)")
+        allc.to_csv(os.path.join(a.out, "summary_by_country.csv"), index=False)
+        print(f"wrote {a.out}/summary_by_country.csv ({allc.iso3.nunique()} countries)")
 
 
 def main():
@@ -174,7 +175,10 @@ def main():
     sub.add_parser("plan")
     s = sub.add_parser("submit"); s.add_argument("--units", nargs="*", default=[]); s.add_argument("--all", action="store_true")
     s.add_argument("--dry-run", action="store_true")
-    sub.add_parser("status"); sub.add_parser("collect"); sub.add_parser("did")
+    sub.add_parser("status"); sub.add_parser("collect")
+    d = sub.add_parser("did")
+    d.add_argument("--cells", default="output/gedi_pa_change_cells_combined.parquet")
+    d.add_argument("--out", default="results/global_did")
     a = ap.parse_args()
     {"plan": plan, "submit": submit, "status": status, "collect": collect, "did": did}[a.cmd](a)
 

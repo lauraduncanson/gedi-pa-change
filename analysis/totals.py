@@ -48,7 +48,8 @@ from pyproj import Transformer
 
 RES, X0, Y0, NCOLS = 1000.89502334956, -17367530.4451615, 7314540.8306386, 34704
 KEEP_STATUS = ("Designated", "Inscribed", "Established")
-METRICS = ["agbd", "rh98", "rh50", "pai", "fhd", "cover"]
+METRICS = ["agbd", "rh98", "rh50", "pai", "fhd", "cover",
+           "agbd_c", "agbd_c_lo", "agbd_c_hi", "rh98_c", "rh50_c"]  # _c: drift-corrected, used when present
 REGIONS = {1: "Europe", 2: "North Asia", 3: "Australasia", 4: "Africa", 5: "South Asia",
            6: "South America", 7: "North America"}  # GEDI L4A prediction strata
 SMD_MAX, MIN_STRATUM, N_BOOT = 0.25, 5, 1000
@@ -167,7 +168,7 @@ def run(a):
     rng = np.random.default_rng(42)
     tables, means, totals = [], {k: [] for k in ("global", "country", "biome", "region")}, \
         {k: [] for k in ("global", "country", "biome", "region")}
-    for metric in METRICS:
+    for metric in [m for m in METRICS if m in set(d.metric)]:
         dm = d[d.metric == metric].set_index("pa_id")
         t = at.copy()
         t["metric"] = metric
@@ -251,8 +252,8 @@ def run(a):
                        t1_pa_measured=wmean(tm.mean_pa_t1.values, w[gm]),
                        t1_ctl_measured=wmean(tm.mean_ctl_t1.values, w[gm]))
             means[by].append(row)
-            if metric == "agbd":  # Mg/ha x ha = Mg; / 1e6 = Tg
-                totals[by].append(dict(group=gv, n_pa_measured=row["n_pa_measured"],
+            if metric.startswith("agbd"):  # Mg/ha x ha = Mg; / 1e6 = Tg
+                totals[by].append(dict(group=gv, metric=metric, n_pa_measured=row["n_pa_measured"],
                                        n_pa_imputed=row["n_pa_imputed"], n_pa_excluded=row["n_pa_excluded"],
                                        area_mha=row["area_mha"], share_area_imputed=row["share_area_imputed"],
                                        total_tg_measured=p[2] / 1e6, total_tg_measured_lo=lo[2] / 1e6,

@@ -34,7 +34,8 @@ import pyreadr
 from pyproj import Transformer
 
 RES, X0, Y0, NCOLS, NROWS = 1000.89502334956, -17367530.4451615, 7314540.8306386, 34704, 14616
-METRICS = ["rh98", "rh50", "pai", "fhd", "cover", "agbd"]
+METRICS = ["rh98", "rh50", "pai", "fhd", "cover", "agbd",
+           "rh98_c", "rh50_c", "agbd_c", "agbd_c_lo", "agbd_c_hi"]  # _c: drift-corrected (drift-v1 tables only)
 
 
 def read_matches(path, iso3):
