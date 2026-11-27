@@ -16,7 +16,8 @@ A PA enters the country summary only if all four groups (PA/control x T1/T2) hav
 --min-cells cells with data for that metric. Standard errors treat cells as independent, so
 they are too small where cells are spatially correlated; read them as a lower bound.
 
-Outputs: <ISO3>_did_by_pa.csv (one row per PA x metric) and a printed country summary.
+Outputs: <ISO3>_did_by_pa.csv (one row per PA x metric; sd_pa_t1/sd_ctl_t1 = SD of T1 cell means,
+for the balance rule) and a printed country summary.
 
   python analysis/did_country.py --iso3 BRA --matches <folder with BRA matching RDS files> \
       --cells output/gedi_pa_change_cells_combined.parquet --out /home/jovyan/GEDI/results
@@ -99,7 +100,7 @@ def did_by_pa(matches, cells_path, min_cells):
         d = joined.dropna(subset=[metric])
         g = d.groupby(["pa_id", "status", "epoch"])[metric].agg(["mean", "std", "count"]).reset_index()
         g["se"] = g["std"] / np.sqrt(g["count"])
-        w = g.pivot_table(index="pa_id", columns=["status", "epoch"], values=["mean", "se", "count"])
+        w = g.pivot_table(index="pa_id", columns=["status", "epoch"], values=["mean", "std", "se", "count"])
         for pa in w.index:
             def get(stat, status, epoch):
                 try:
@@ -112,9 +113,12 @@ def did_by_pa(matches, cells_path, min_cells):
                   dict(pa_t1=(True, "T1"), pa_t2=(True, "T2"), ctl_t1=(False, "T1"), ctl_t2=(False, "T2")).items()}
             se = {k: get("se", s, e) for k, (s, e) in
                   dict(pa_t1=(True, "T1"), pa_t2=(True, "T2"), ctl_t1=(False, "T1"), ctl_t2=(False, "T2")).items()}
+            sd = {k: get("std", s, e) for k, (s, e) in
+                  dict(pa_t1=(True, "T1"), ctl_t1=(False, "T1")).items()}
             ch_pa, ch_ctl = mu["pa_t2"] - mu["pa_t1"], mu["ctl_t2"] - mu["ctl_t1"]
             rows.append(dict(pa_id=pa, metric=metric,
                              **{f"n_{k}": n[k] for k in n}, **{f"mean_{k}": mu[k] for k in mu},
+                             **{f"sd_{k}": sd[k] for k in sd},
                              change_pa=ch_pa, change_ctl=ch_ctl, did=ch_pa - ch_ctl,
                              did_se=np.sqrt(np.nansum([se[k] ** 2 for k in se])),
                              qualifies=all(np.nan_to_num(n[k]) >= min_cells for k in n)))
