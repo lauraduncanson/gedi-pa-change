@@ -263,6 +263,9 @@ Implemented in `analysis/totals.py`.
 - **Balance-threshold sensitivity (Laura, 2026-11-27; decided before seeing corrected results):**
   headline uses |T1 AGBD SMD| <= 0.25; the same totals are also reported at 0.1 and 0.5
   (`totals.py run --smd-max`), for every drift version, side by side with the headline.
+- **Balance is computed on uncorrected T1 AGBD in every drift version** (Laura, 2026-11-27), so
+  the same PAs are measured whether results are uncorrected, corrected or at the drift bounds;
+  differences between versions come from the correction alone.
 - **Outputs:** area-weighted mean DiD per metric (kept for figures), and for AGBD the total
   DiD x area in Tg; by country, biome, region and globally; measured-only and measured + imputed;
   95% bootstrap over measured PAs (imputed values recomputed in each resample).
