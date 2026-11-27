@@ -57,6 +57,47 @@ and in their matched counterfactuals, across the GEDI domain (51.6 S to 51.6 N).
   epoch at the reporting unit and report how many units qualify.
 - Decide filters, minimum sample sizes and the headline comparison before looking at
   PA-versus-control results.
+- Change results are reported uncorrected, corrected (central) and at the low/high drift bounds
+  (see "Ground-drift correction").
+
+## Ground-drift correction (2026-11-27)
+
+Do not change the drift table, the L4A model files or the overrides without asking Laura.
+- **Mechanism:** under dense canopy GEDI picks the ground (lowest mode) progressively too high
+  over the mission (missed ground). Canopy top is unaffected, so RH and L4A AGBD decline
+  artificially and T2 looks like loss. Measured as the change in `elev_lowestmode_l2a -
+  digital_elevation_model_l2a` (TanDEM-X) within 1-degree tiles, slopes < 10 deg, by Landsat tree
+  cover, in 650 random tiles. Open ground (0-10% cover) drifts ~0.03 m/yr (whole-waveform shift;
+  cancels in RH, so subtracted). Excess drift is ~0 below 50% cover and rises to 0.087 m/yr
+  (95% CI 0.056-0.118) at 90-100%; a gradual ramp since 2020, not a step at the 2023-24 storage
+  period. 2019 sits below the trend, so the rate is fitted on 2020+ and 2019 has its own offset.
+  Check: canopy-top elevation shows no cover-dependent drift; directly measured RH98 bias at
+  90-100% cover (0.13 m/yr, CI 0.04-0.26) agrees.
+- **Table:** `extract_tile/drift_correction.csv` (final 650-tile fit; columns excess_rate /
+  excess_lo / excess_hi per cover class, offset_2019, ref_fit, t1_year_weights).
+- **Applied** per shot in both epochs: `correction_m = drift(cover, year) - mean drift over T1
+  shots`, added to every RH percentile of `rh_l2a`. T1 means are unchanged; T2 is put on T1's
+  ground finding. Code: `extract_tile/correction.py` (self-contained), called from
+  `extract_tile.py: apply_correction()`. Analysis scripts: `analysis/ground_drift_quicklook.py`,
+  `ground_drift_within_tile.py`, `drift_correction.py`, `top_vs_ground_check.py`,
+  `find_l4a_models.py`, `l4a_model.py`.
+- **L4A model:** AGBD recomputed from corrected RH with the V3 models from the product
+  (`ANCILLARY/model_data` of a V003 L4A granule -> `extract_tile/l4a_model_data.json`):
+  `x_i = sqrt(rh_l2a[RH_i] + 100)`, `y = max(b0 + sum b_i x_i, 0)`, `AGBD = bias_correction * y^2`;
+  no capping; L4A uses `rh_l2a` for every shot.
+- **South America overrides:** for `EBT_SA` and `DBT_SA` the product applies a model not in
+  `model_data` (the stored rows hold the South Asia coefficients). The applied model, recovered
+  from the product: sqrt(AGBD) = -143.7771 + 7.471 sqrt(RH50+100) + 6.7511 sqrt(RH98+100), bc 1.0,
+  in `extract_tile/l4a_overrides.json`. With it, recomputed AGBD matched `agbd_l4a` to < 0.1% for
+  10,689 shots in 15 strata.
+- **Outputs:** shot files add `rh_shift_m`, `rh98_c`, `rh50_c`, `agbd_c` (central), `agbd_c_lo`,
+  `agbd_c_hi` (95% drift-rate bounds); cell files add `<metric>_n/_mean/_sd` for these. Summary
+  JSON adds `l4a_checked`, `l4a_mismatch_frac` (should be ~0) and `l4a_mismatch_strata`; a
+  non-empty `l4a_mismatch_strata` means a stratum whose applied model differs from the stored
+  table: report it, do not paper over it.
+- **Not corrected:** PAI, FHD and L2B cover (missed ground biases them too). Lead with RH98 and
+  AGBD for change; treat L2B metrics as uncorrected.
+- Hub test, tile S03_W060 (Amazon): 85,091 shots recomputed, mismatch 0.0.
 
 ## Repo layout
 
@@ -194,6 +235,24 @@ Instead, impute the PA's DiD from comparable measured PAs:
   is their spread. The PA's own T1/T2 change inside the PA is still measured, not imputed.
 - **Always report** measured-only and measured + imputed totals side by side, with the share of
   PAs and of PA area that is imputed, by country and globally.
+
+## Totals (Laura, 2026-11-27; decided before computing)
+
+Implemented in `analysis/totals.py`.
+- **PA universe:** kept PAs (as in the global PA change analysis) with at least one GEDI cell
+  (centre inside, `output/cell_pa.parquet`). Measured = valid counterfactual as above; everything
+  else is imputed. PAs whose biome stratum has < 5 measured PAs at every level stay unimputed and
+  are reported as excluded.
+- **Area:** WDPA polygon area in EASE2 (equal area), parcels of one WDPAID dissolved, clipped to
+  51.6 S - 51.6 N. Overlaps between PAs are counted once: within each country, PA areas are scaled
+  so they sum to the dissolved union of that country's universe PAs.
+- **Country** = WDPA ISO3 (first code for multi-country sites); **biome** = majority WWF biome of
+  the PA's cells; **region** = majority GEDI continent region of its cells.
+- **Weights:** area everywhere (means, and the stratum means used for imputation; this replaces
+  "PA-cell-weighted" above).
+- **Outputs:** area-weighted mean DiD per metric (kept for figures), and for AGBD the total
+  DiD x area in Tg; by country, biome, region and globally; measured-only and measured + imputed;
+  95% bootstrap over measured PAs (imputed values recomputed in each resample).
 
 ## L4B matching check in Cameroon (decided 2026-11-26, before running)
 

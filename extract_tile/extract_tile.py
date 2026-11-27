@@ -15,6 +15,14 @@ GEDI_ANCI_PFT_r1000m_EASE2.0). In R/terra the same cell is cell_id + 1.
 
 Runs on NASA MAAP (Hub or DPS) with the platform's own AWS credentials; no Earthdata login.
 
+Ground-drift correction (if the correction files are present, see correction.py): every shot
+also gets drift-corrected RH98/RH50 and AGBD recomputed from corrected RH with the L4A V3 models,
+in three variants (central, low, high drift rate). Uncorrected AGBD is recomputed too and
+compared with agbd_l4a; the share of shots disagreeing by >0.1% is written to the summary
+(l4a_mismatch_frac) as a continuous check of the recomputation.
+New metrics: rh98_c, rh50_c, agbd_c (central), agbd_c_lo, agbd_c_hi. L2B metrics (PAI, FHD,
+cover) are not corrected.
+
 A summary_<tile>.json is always written (even when no shots pass), so the submit script can
 tell finished tiles from missing ones.
 
@@ -52,6 +60,12 @@ BASE_FILTER = f"""
 L2B_OK = "l2b_quality_flag_rel3_l2b = 1"
 L4A_OK = "l4a_quality_flag_rel3_l4a = 1"
 METRICS = ["rh98", "rh50", "pai", "fhd", "cover", "agbd"]
+CORR_METRICS = ["rh98_c", "rh50_c", "agbd_c", "agbd_c_lo", "agbd_c_hi"]
+HERE = os.path.dirname(os.path.abspath(__file__))
+CORR_FILES = {k: os.environ.get(f"GEDI_PA_{k.upper()}", os.path.join(HERE, f))
+              for k, f in (("l4a_models", "l4a_model_data.json"),
+                           ("l4a_overrides", "l4a_overrides.json"),
+                           ("drift", "drift_correction.csv"))}
 
 
 # In the container the windows file and DuckDB extensions are baked in (see Containerfile).
@@ -103,6 +117,10 @@ def read_shots(con, files, windows):
              CASE WHEN land_cover_data_region_class_l2a IN ({hemi})
                   THEN (CASE WHEN lat_lowestmode >= 0 THEN 'N' ELSE 'S' END) ELSE 'all' END AS hemisphere,
              rh_l2a[99] AS rh98, rh_l2a[51] AS rh50,   -- rh_l2a holds RH0..RH100 (1-based index)
+             rh_l2a[61] AS rh60, rh_l2a[71] AS rh70,
+             predict_stratum_l4a AS stratum,
+             CASE WHEN {L4A_OK} THEN agbd_l4a END AS agbd_l4a_q,
+             land_cover_data_landsat_treecover_l2a AS tcover,
              CASE WHEN {L2B_OK} AND pai_l2b >= 0 THEN pai_l2b END AS pai,
              CASE WHEN {L2B_OK} AND fhd_normal_l2b >= 0 THEN fhd_normal_l2b END AS fhd,
              CASE WHEN {L2B_OK} AND cover_l2b >= 0 THEN cover_l2b END AS cover,
@@ -134,14 +152,49 @@ def add_cells(df):
     return df
 
 
-def aggregate(df):
+def apply_correction(df, summary):
+    """Add drift-corrected RH and recomputed AGBD columns (see correction.py)."""
+    if not all(os.path.exists(f) for k, f in CORR_FILES.items() if k != "l4a_overrides"):
+        print("correction files not found; skipping drift correction")
+        return df, []
+    import correction as C
+    ov = CORR_FILES["l4a_overrides"] if os.path.exists(CORR_FILES["l4a_overrides"]) else None
+    M = C.L4AModels(CORR_FILES["l4a_models"], ov)
+    D = C.Drift(CORR_FILES["drift"])
+    rh = {p: df[f"rh{p}"].to_numpy(float) for p in (50, 60, 70, 98)}
+    missing = set(M.rh_needed()) - set(rh)
+    if missing:
+        raise SystemExit(f"model needs RH percentiles not read: {missing}")
+    zero = np.zeros(len(df))
+    # check: uncorrected recomputation vs product
+    rec = M.predict(df.stratum.to_numpy(object), rh, zero)
+    ok = df.agbd_l4a_q.notna() & np.isfinite(rec) & (df.agbd_l4a_q >= 0)
+    rel = np.abs(rec[ok] - df.agbd_l4a_q[ok]) / np.maximum(df.agbd_l4a_q[ok].abs(), 1.0)
+    summary["l4a_checked"] = int(ok.sum())
+    summary["l4a_mismatch_frac"] = float((rel > 1e-3).mean()) if ok.any() else None
+    bad = df.stratum[ok][rel.to_numpy() > 1e-3].value_counts()
+    summary["l4a_mismatch_strata"] = {str(k): int(v) for k, v in bad.items()}
+    valid_agbd = df.agbd.notna()  # same L4A quality filter as the uncorrected metric
+    for which, col in (("central", "agbd_c"), ("low", "agbd_c_lo"), ("high", "agbd_c_hi")):
+        shift = D.correction(df.tcover, df.yr, which)
+        df[col] = np.where(valid_agbd, M.predict(df.stratum.to_numpy(object), rh, shift), np.nan)
+        if which == "central":
+            df["rh_shift_m"] = shift
+            df["rh98_c"] = df.rh98 + shift
+            df["rh50_c"] = df.rh50 + shift
+    print(f"drift correction applied; L4A recomputation mismatch "
+          f"{summary['l4a_mismatch_frac']} of {summary['l4a_checked']} shots")
+    return df, CORR_METRICS
+
+
+def aggregate(df, metrics=METRICS):
     g = df.groupby(["cell_id", "epoch"], sort=False)
     out = g.agg(n_shots=("shot_number", "size"), n_granules=("granule", "nunique"),
                 pft_class=("pft_class", "first"), region_class=("region_class", "first"),
                 hemisphere=("hemisphere", "first"), lon=("lon", "mean"), lat=("lat", "mean"),
                 frac_night=("night", "mean"), n_beams=("beam", "nunique"),
                 sensitivity_mean=("sensitivity", "mean"))
-    for m in METRICS:
+    for m in metrics:
         out[f"{m}_n"] = g[m].count()
         out[f"{m}_mean"] = g[m].mean()
         out[f"{m}_sd"] = g[m].std()
@@ -184,9 +237,10 @@ def main():
         print("no shots passed the filters")
         return finish()
     df = add_cells(df)
+    df, extra = apply_correction(df, summary)
     if not a.no_shots:
         df.to_parquet(os.path.join(a.out, f"shots_{a.tile}.parquet"), index=False)
-    cells = aggregate(df)
+    cells = aggregate(df, METRICS + extra)
     cells.insert(0, "tile_id", a.tile)
     cells.to_parquet(os.path.join(a.out, f"cells_{a.tile}.parquet"), index=False)
     both = cells.groupby("cell_id").epoch.nunique().eq(2).sum()

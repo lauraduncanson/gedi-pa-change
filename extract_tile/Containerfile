@@ -13,5 +13,12 @@ RUN mkdir -p $DUCKDB_EXTENSION_DIR \
 COPY ./extract_tile/doy_windows.csv /app/doy_windows.csv
 ENV GEDI_PA_WINDOWS=/app/doy_windows.csv
 
+# Drift correction and L4A V3 models (see correction.py)
+COPY ./extract_tile/correction.py /usr/local/bin/correction.py
+COPY ./extract_tile/l4a_model_data.json ./extract_tile/l4a_overrides.json ./extract_tile/drift_correction.csv /app/
+ENV GEDI_PA_L4A_MODELS=/app/l4a_model_data.json \
+    GEDI_PA_L4A_OVERRIDES=/app/l4a_overrides.json \
+    GEDI_PA_DRIFT=/app/drift_correction.csv
+
 COPY ./extract_tile/extract_tile.py /usr/local/bin/extract_tile.py
 RUN chmod +x /usr/local/bin/extract_tile.py
