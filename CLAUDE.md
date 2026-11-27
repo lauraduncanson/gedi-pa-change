@@ -130,6 +130,12 @@ Do not change the drift table, the L4A model files or the overrides without aski
   > 1 for ~1.4% of rows). Use the combined table for matching and all aggregates.
 - Ramp up: 2 test tiles (`S13_E028`, `N11_W005`), then 100, then all. Check outputs at each step.
   Job ids are logged in `dps/jobs.csv` (not committed).
+- **drift-v1** (ground-drift correction): deployment job 517, **process 252**, 2026-11-27. Outputs in
+  `.../gedi-pa-change-extract-tile_14/drift-v1/`; always pass
+  `--done-dir s3://maap-ops-workspace/lduncanson/dps_output/gedi-pa-change-extract-tile_14/drift-v1/`
+  (the default prefix also matches the `main` run and would count every tile as done). The `main`
+  job log is `dps/jobs_main.csv`; `dps/jobs.csv` holds drift-v1 jobs. Test tiles S03_W060 and
+  S13_E028 passed (L4A mismatch 0.0, no mismatch strata, `agbd_c_mean` in cells).
 - Confirmed by the test tiles: DPS workers can read gedi-tiled-v3; queue `maap-dps-worker-16gb`
   works (process id 237; ~15 s per tile, ~200 tiles/min); output location as above.
 
