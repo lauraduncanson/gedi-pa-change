@@ -1,0 +1,2 @@
+group,n_pa_measured,n_pa_imputed,n_pa_excluded,area_mha,share_area_imputed,total_tg_measured,total_tg_measured_lo,total_tg_measured_hi,total_tg_all,total_tg_all_lo,total_tg_all_hi
+all,5827,70671,902,1515.4437205853928,0.32267728871691287,2112.114318405057,1300.38151440353,2930.0531368850093,3006.73631439482,1893.270232455991,4376.303790878122

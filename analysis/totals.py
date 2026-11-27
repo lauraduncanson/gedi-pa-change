@@ -9,7 +9,8 @@ Design: CLAUDE.md, "PAs without a valid counterfactual" and "Totals".
       --out output/totals_pa_attrs.parquet
   # 2. measured / imputed DiD, means and totals
   python analysis/totals.py run --attrs output/totals_pa_attrs.parquet --did results/global_did \
-      --out results/totals
+      --out results/totals                      # headline, |SMD| <= 0.25
+  python analysis/totals.py run --smd-max 0.1 --out results/totals_smd0.1   # balance sensitivity (also 0.5)
 
 Universe: kept PAs (Designated/Inscribed/Established, PA_DEF 1, no UNESCO-MAB) with at least one
 GEDI cell (centre inside). A PA is measured for a metric if its DiD qualifies (>= 10 cells in each
@@ -136,7 +137,7 @@ def attrs(a):
 
 
 # ---------------------------------------------------------------- DiD, imputation, totals
-def load_did(root):
+def load_did(root, smd_max=SMD_MAX):
     import glob
     fr = [pd.read_csv(f).assign(did_iso3=os.path.basename(os.path.dirname(f)))
           for f in glob.glob(os.path.join(root, "*", "*_did_by_pa.csv"))]
@@ -149,7 +150,7 @@ def load_did(root):
     ag = d[d.metric == "agbd"].set_index("pa_id")
     smd = (ag.mean_pa_t1 - ag.mean_ctl_t1) / np.sqrt((ag.sd_pa_t1 ** 2 + ag.sd_ctl_t1 ** 2) / 2)
     d["smd_agbd_t1"] = d.pa_id.map(smd)
-    d["valid"] = d.qualifies.astype(bool) & (d.smd_agbd_t1.abs() <= SMD_MAX)
+    d["valid"] = d.qualifies.astype(bool) & (d.smd_agbd_t1.abs() <= smd_max)
     return d
 
 
@@ -162,7 +163,7 @@ def run(a):
     os.makedirs(a.out, exist_ok=True)
     at = pd.read_parquet(a.attrs)
     at["region_name"] = at.region.map(REGIONS)
-    d = load_did(a.did)
+    d = load_did(a.did, a.smd_max)
     rng = np.random.default_rng(42)
     tables, means, totals = [], {k: [] for k in ("global", "country", "biome", "region")}, \
         {k: [] for k in ("global", "country", "biome", "region")}
@@ -277,6 +278,8 @@ def main():
     r = sub.add_parser("run")
     r.add_argument("--attrs", default="output/totals_pa_attrs.parquet"); r.add_argument("--did", default="results/global_did")
     r.add_argument("--out", default="results/totals")
+    r.add_argument("--smd-max", type=float, default=SMD_MAX,
+                   help="T1 AGBD balance threshold (headline 0.25; sensitivity 0.1 and 0.5)")
     a = ap.parse_args()
     {"attrs": attrs, "run": run}[a.cmd](a)
 
